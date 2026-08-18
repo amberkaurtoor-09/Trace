@@ -89,7 +89,7 @@ export const CURRENT_GOAL = {
 };
 
 export const SAMPLE_THOUGHT =
-  "I practiced the talk out loud and the opening finally felt like a conversation with the audience.";
+  "I struggled to explain my project without looking at my slides.";
 
 export type SkillView = {
   id: string;
@@ -260,7 +260,7 @@ function layout(ids: string[], links: GraphLink[]) {
 
 function nodeRadius(kind: "thought" | "skill", strength: number) {
   const capped = Math.min(strength, 8);
-  return kind === "skill" ? 24 + capped * 2.6 : 13 + capped * 2.8;
+  return kind === "skill" ? 26 + capped * 2.4 : 7 + Math.min(capped, 5) * 1.15;
 }
 
 export function catColor(name: string) {
@@ -457,7 +457,7 @@ export function curiosity(view: BrainView): CuriosityItem[] {
     items.push({
       id: goal.id,
       title: goal.name,
-      why: `${goal.reps} memories on this path`,
+      why: `${goal.reps} connected thought${goal.reps === 1 ? "" : "s"}`,
     });
   }
   const rest = view.skills
@@ -467,7 +467,7 @@ export function curiosity(view: BrainView): CuriosityItem[] {
     items.push({
       id: s.id,
       title: s.name,
-      why: s.mastery < 0.45 ? "Still opening — a place to explore next" : "Adjacent to what you already capture",
+      why: `${s.reps} connected thought${s.reps === 1 ? "" : "s"}`,
     });
   }
   return items;

@@ -193,6 +193,11 @@ body {
   inset: 0;
 }
 
+.graph-stage {
+  position: absolute;
+  inset: 0;
+}
+
 .graph-svg {
   width: 100%;
   height: 100%;
@@ -217,6 +222,16 @@ body {
 
 .glink.builds { stroke: #8a86e8; }
 
+.glink.hot {
+  animation: path-soft 1.4s ease-in-out 1;
+}
+
+@keyframes path-soft {
+  from { stroke-opacity: 0.35; }
+  50% { stroke-opacity: 1; }
+  to { stroke-opacity: 0.85; }
+}
+
 @keyframes edge-draw {
   from { stroke-dashoffset: 1; }
 }
@@ -234,7 +249,9 @@ body {
   from { opacity: 0; transform: scale(0); }
 }
 
-.gnode.dim { opacity: 0.16; }
+.gnode.dim { opacity: 0.14; }
+
+.gnode.near { opacity: 1; }
 
 .gnode-core { transition: r 200ms ease; }
 
@@ -258,7 +275,7 @@ body {
 }
 
 .glabel {
-  font-size: 21px;
+  font-size: 18px;
   font-weight: 550;
   paint-order: stroke;
   stroke: #0a0b0f;
@@ -267,8 +284,24 @@ body {
 }
 
 .glabel.skill {
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 700;
+}
+
+.graph-tip {
+  position: absolute;
+  z-index: 12;
+  max-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(12px);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translate(12px, 12px);
 }
 
 /* Zoom controls */
@@ -829,6 +862,7 @@ body {
   padding: 0;
 }
 
+.tab:hover { color: var(--text-2); }
 .tab.on { color: var(--accent); }
 
 .fab {
@@ -952,6 +986,22 @@ body {
   text-align: center;
 }
 
+.example-link {
+  display: block;
+  width: 100%;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.example-link:hover { color: var(--accent); }
+
 /* ── Inspector / capture story ─────────────────────────────────────── */
 
 .inspect-block { margin-top: 12px; }
@@ -1021,6 +1071,11 @@ body {
   cursor: pointer;
 }
 
+.goal-card.on {
+  border-color: #cfa35688;
+  background: #cfa35614;
+}
+
 .goal-kicker {
   margin: 0 0 4px;
   font-size: var(--fs-xs);
@@ -1066,6 +1121,10 @@ body {
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.curiosity-row:hover {
+  border-color: var(--border-strong);
 }
 
 .curiosity-row.on {
@@ -1173,6 +1232,14 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--bg-sheet);
+}
+
+.about-thesis {
+  margin: 4px 0 10px;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
 }
 
 .about-card .inspect-label { margin-top: 14px; }

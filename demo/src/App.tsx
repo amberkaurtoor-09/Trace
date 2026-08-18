@@ -37,22 +37,30 @@ function Graph({
   freshId,
   hidden,
   onPick,
+  onClear,
 }: {
   view: BrainView;
   focus: string;
   freshId: string;
   hidden: string[];
   onPick: (id: string) => void;
+  onClear: () => void;
 }) {
+  const wrap = useRef<HTMLDivElement>(null);
   const [cam, setCam] = useState({ x: 0, y: 200, w: 1000 });
-  const drag = useRef<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: number; bg: boolean } | null>(null);
+  const lastMoved = useRef(0);
   const prevFocus = useRef("");
   const visible = view.nodes.filter((n) => n.kind === "skill" || !hidden.includes(n.category));
   const at = new Map(visible.map((n) => [n.id, n]));
+  const focused = at.get(focus);
   const neighbors = new Set<string>();
   if (focus) {
     neighbors.add(focus);
     for (const l of view.links) {
+      const skillFocus = focused?.kind === "skill";
+      if (skillFocus && l.kind !== "builds") continue;
       if (l.source === focus) neighbors.add(l.target);
       if (l.target === focus) neighbors.add(l.source);
     }
@@ -91,64 +99,87 @@ function Graph({
   }, [focus]);
 
   return (
-    <svg
-      className="graph-svg"
-      viewBox={`${cam.x} ${cam.y} ${cam.w} ${vh}`}
-      onPointerDown={(e) => {
-        (e.target as Element).setPointerCapture?.(e.pointerId);
-        drag.current = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y };
-      }}
-      onPointerMove={(e) => {
-        if (!drag.current) return;
-        const svg = e.currentTarget;
-        const rect = svg.getBoundingClientRect();
-        const scale = cam.w / rect.width;
-        setCam({
-          ...cam,
-          x: drag.current.cx - (e.clientX - drag.current.x) * scale,
-          y: drag.current.cy - (e.clientY - drag.current.y) * scale,
-        });
-      }}
-      onPointerUp={() => {
-        drag.current = null;
-      }}
-      onWheel={(e) => {
-        e.preventDefault();
-        const factor = e.deltaY > 0 ? 1.08 : 0.92;
-        const w = Math.min(2200, Math.max(320, cam.w * factor));
-        setCam({ ...cam, w });
-      }}
-    >
-      {view.links.map((l, i) => {
-        const a = at.get(l.source);
-        const b = at.get(l.target);
-        if (!a || !b) return null;
-        const dim = focus && !neighbors.has(l.source) && !neighbors.has(l.target);
-        return (
-          <path
-            key={i}
-            className={`glink${l.kind === "builds" ? " builds" : ""}`}
-            d={edgePath(a.x, a.y, b.x, b.y)}
-            fill="none"
-            strokeWidth={l.kind === "builds" ? 2.2 : 1.6}
-            strokeOpacity={dim ? 0.08 : 0.25 + l.weight * 0.55}
-            pathLength={1}
+    <div className="graph-stage" ref={wrap}>
+      <svg
+        className="graph-svg"
+        viewBox={`${cam.x} ${cam.y} ${cam.w} ${vh}`}
+        onPointerDown={(e) => {
+          (e.target as Element).setPointerCapture?.(e.pointerId);
+          const bg = (e.target as Element).classList.contains("graph-svg");
+          drag.current = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: 0, bg };
+        }}
+        onPointerMove={(e) => {
+          if (!drag.current) return;
+          const svg = e.currentTarget;
+          const rect = svg.getBoundingClientRect();
+          const scale = cam.w / rect.width;
+          drag.current.moved += Math.abs(e.clientX - drag.current.x) + Math.abs(e.clientY - drag.current.y);
+          setCam({
+            ...cam,
+            x: drag.current.cx - (e.clientX - drag.current.x) * scale,
+            y: drag.current.cy - (e.clientY - drag.current.y) * scale,
+          });
+        }}
+        onPointerUp={() => {
+          const g = drag.current;
+          lastMoved.current = g?.moved ?? 0;
+          drag.current = null;
+          if (g && g.bg && g.moved < 8) onClear();
+        }}
+        onWheel={(e) => {
+          e.preventDefault();
+          const factor = e.deltaY > 0 ? 1.08 : 0.92;
+          const w = Math.min(2200, Math.max(320, cam.w * factor));
+          setCam({ ...cam, w });
+        }}
+      >
+        {view.links.map((l, i) => {
+          const a = at.get(l.source);
+          const b = at.get(l.target);
+          if (!a || !b) return null;
+          const hot = Boolean(focus) && neighbors.has(l.source) && neighbors.has(l.target);
+          const dim = Boolean(focus) && !hot;
+          return (
+            <path
+              key={i}
+              className={`glink${l.kind === "builds" ? " builds" : ""}${hot ? " hot" : ""}`}
+              d={edgePath(a.x, a.y, b.x, b.y)}
+              fill="none"
+              strokeWidth={hot ? (l.kind === "builds" ? 2.8 : 2) : l.kind === "builds" ? 2.2 : 1.6}
+              strokeOpacity={dim ? 0.06 : hot ? 0.85 : 0.22 + l.weight * 0.5}
+              pathLength={1}
+            />
+          );
+        })}
+        {visible.map((node, index) => (
+          <NodeMark
+            key={node.id}
+            node={node}
+            index={index}
+            mastery={view.skills.find((s) => s.id === node.id)?.mastery ?? 0}
+            dim={Boolean(focus) && !neighbors.has(node.id)}
+            lit={neighbors.has(node.id)}
+            selected={focus === node.id}
+            fresh={freshId === node.id}
+            onPick={(id) => {
+              if (lastMoved.current >= 8) return;
+              onPick(id);
+            }}
+            onTip={(text, clientX, clientY) => {
+              const box = wrap.current?.getBoundingClientRect();
+              if (!box) return;
+              setTip({ text, x: clientX - box.left, y: clientY - box.top });
+            }}
+            onTipOut={() => setTip(null)}
           />
-        );
-      })}
-      {visible.map((node, index) => (
-        <NodeMark
-          key={node.id}
-          node={node}
-          index={index}
-          mastery={view.skills.find((s) => s.id === node.id)?.mastery ?? 0}
-          dim={Boolean(focus) && !neighbors.has(node.id)}
-          lit={focus === node.id}
-          fresh={freshId === node.id}
-          onPick={onPick}
-        />
-      ))}
-    </svg>
+        ))}
+      </svg>
+      {tip && (
+        <div className="graph-tip" style={{ left: tip.x, top: tip.y }}>
+          {tip.text}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -158,16 +189,22 @@ function NodeMark({
   mastery,
   dim,
   lit,
+  selected,
   fresh,
   onPick,
+  onTip,
+  onTipOut,
 }: {
   node: GraphNode;
   index: number;
   mastery: number;
   dim: boolean;
   lit: boolean;
+  selected: boolean;
   fresh: boolean;
   onPick: (id: string) => void;
+  onTip: (text: string, x: number, y: number) => void;
+  onTipOut: () => void;
 }) {
   const skill = node.kind === "skill";
   const color = skill ? "#c9d1ff" : catColor(node.category);
@@ -177,11 +214,24 @@ function NodeMark({
   const delay = Math.min(index * 30, 600);
   let klass = "gnode";
   if (dim) klass += " dim";
-  if (lit) klass += " lit";
+  if (selected) klass += " lit";
+  if (lit && !selected) klass += " near";
   if (fresh) klass += " fresh";
+  const showLabel = skill || selected || (lit && node.kind === "thought");
   return (
-    <g className={klass} style={{ animationDelay: `${delay}ms` }} onClick={() => onPick(node.id)}>
-      {(lit || fresh) && <circle className="gnode-glow" cx={node.x} cy={node.y} r={r * 2.4} fill={color} />}
+    <g
+      className={klass}
+      style={{ animationDelay: `${delay}ms` }}
+      onClick={() => onPick(node.id)}
+      onPointerEnter={(e) => {
+        if (!skill) onTip(node.detail, e.clientX, e.clientY);
+      }}
+      onPointerMove={(e) => {
+        if (!skill) onTip(node.detail, e.clientX, e.clientY);
+      }}
+      onPointerLeave={onTipOut}
+    >
+      {(selected || fresh) && <circle className="gnode-glow" cx={node.x} cy={node.y} r={r * 2.4} fill={color} />}
       {skill && (
         <>
           <circle cx={node.x} cy={node.y} r={ringR} fill="none" stroke="#2b2e3d" strokeWidth={3} />
@@ -208,15 +258,21 @@ function NodeMark({
         stroke={color}
         strokeWidth={skill ? 3 : 0}
       />
-      <text
-        className={`glabel${skill ? " skill" : ""}`}
-        x={node.x}
-        y={node.y + (skill ? ringR : r) + 26}
-        textAnchor="middle"
-        fill={color}
-      >
-        {node.label.length > 22 ? node.label.slice(0, 21) + "…" : node.label}
-      </text>
+      {showLabel && (
+        <text
+          className={`glabel${skill ? " skill" : ""}`}
+          x={node.x}
+          y={node.y + (skill ? ringR : r) + 22}
+          textAnchor="middle"
+          fill={color}
+        >
+          {skill
+            ? node.label
+            : node.label.length > 18
+              ? node.label.slice(0, 17) + "…"
+              : node.label}
+        </text>
+      )}
     </g>
   );
 }
@@ -323,6 +379,11 @@ function Composer({
         <button className="primary-btn" disabled={linking || !text.trim()} onClick={onSubmit}>
           {linking ? "Connecting…" : "+ Add thought"}
         </button>
+        {!text.trim() && !linking && (
+          <button type="button" className="example-link" onClick={() => onText(SAMPLE_THOUGHT)}>
+            Try: I struggled to explain my project without looking at my slides.
+          </button>
+        )}
         <p className="hint">
           {linking
             ? "Filing this thought and linking it by shared skills — not a chatbot call."
@@ -467,15 +528,11 @@ function Skills({ view }: { view: BrainView }) {
         <p className="card-links">Capture a few thoughts and skills will emerge here.</p>
       )}
       {view.skills.map((s) => {
-        let level = "Practising";
-        if (s.mastery >= 1) level = "Fluent";
-        else if (s.mastery >= 0.6) level = "Solid";
-        else if (s.mastery < 0.3) level = "Just started";
         return (
           <article key={s.id} className="card">
             <div className="card-top">
               <span className="skill-name">{s.name}</span>
-              <span className="card-meta">{level}</span>
+              <span className="card-meta">{s.reps} connected</span>
             </div>
             <p className="card-links" style={{ margin: "0 0 10px" }}>
               {s.blurb}
@@ -484,11 +541,15 @@ function Skills({ view }: { view: BrainView }) {
               <span className="bar-fill" style={{ width: `${s.mastery * 100}%`, background: "#6d7cfa" }} />
             </div>
             <p className="card-links">
-              {s.reps} of {s.target} thoughts feeding it
+              {s.reps} connected thought{s.reps === 1 ? "" : "s"}
             </p>
           </article>
         );
       })}
+
+      <p className="goal-note" style={{ margin: "0 2px 16px" }}>
+        Counted from linked thoughts — not a measured score.
+      </p>
 
       <p className="section-title">Memory mix</p>
       {CATEGORIES.map((name) => {
@@ -565,16 +626,18 @@ function GoalCard({
   skills,
   target,
   ratio,
+  active,
   onOpen,
 }: {
   memories: number;
   skills: number;
   target: number;
   ratio: number;
+  active: boolean;
   onOpen: () => void;
 }) {
   return (
-    <button className="goal-card" onClick={onOpen}>
+    <button className={active ? "goal-card on" : "goal-card"} onClick={onOpen}>
       <p className="goal-kicker">Current goal</p>
       <p className="goal-title">Become a stronger public speaker</p>
       <span className="bar-track goal-bar">
@@ -600,7 +663,7 @@ function CuriosityList({
   return (
     <div className="curiosity">
       <p className="section-title">Explore your curiosity</p>
-      <p className="dock-copy">Suggested next paths from this graph — tap one to light it up.</p>
+      <p className="dock-copy">Tap a path to light the skill and the thoughts that feed it.</p>
       {items.map((item) => (
         <button
           key={item.id}
@@ -723,8 +786,12 @@ function AboutDrawer({ onClose }: { onClose: () => void }) {
           <p className="section-title" style={{ margin: 0 }}>About Trace</p>
           <button className="node-close" onClick={onClose}>×</button>
         </div>
+        <h3 className="about-thesis">The second brain that remembers how you remember.</h3>
         <p className="card-text">
-          A curiosity map for your mind — memories become a living graph so you can remember, connect, and see what to explore next. Inspired by Obsidian’s note graph; the difference is discovering a path forward, not only filing what you already know.
+          Trace turns thoughts into a living knowledge graph, connecting memories, skills, and goals to help you see patterns in how you learn — and where curiosity could lead next.
+        </p>
+        <p className="card-text">
+          Inspired by knowledge graphs, Obsidian-style connected notes, and curiosity mapping: ideas get more useful when the relationships between them are visible. The “brain” language is a product metaphor, not a claim about neural activity.
         </p>
         <p className="inspect-label">Built with</p>
         <p className="card-links">React · TypeScript · Vite · Jac/Jaseci</p>
@@ -733,11 +800,11 @@ function AboutDrawer({ onClose }: { onClose: () => void }) {
           <li>Custom graph visualization engine — no vis.js / D3</li>
           <li>Force-directed layout</li>
           <li>Pan, zoom, and glide-to-node</li>
-          <li>Optimistic updates with rollback (Jac app)</li>
+          <li>Jac app: optimistic submit with rollback</li>
         </ul>
         <p className="inspect-label">How it was built</p>
         <p className="card-text">
-          AI-assisted development with Devin, directed against a written spec. Architecture, constraints, and validation stayed with the human developer.
+          I directed Devin, an AI coding agent, against a written spec rather than using it as autocomplete. Architecture, constraints, and validation stayed with the human developer.
         </p>
         <a className="about-github" href="https://github.com/amberkaurtoor-09/Trace" target="_blank" rel="noreferrer">
           Source on GitHub
@@ -849,6 +916,7 @@ export function App() {
             freshId={freshId}
             hidden={hidden}
             onPick={pick}
+            onClear={() => setFocus("")}
           />
           {!focused && (
           <div className="home-stack">
@@ -857,6 +925,7 @@ export function App() {
               skills={goal.skills}
               target={goal.target}
               ratio={goal.ratio}
+              active={focus === goal.skillId}
               onOpen={() => {
                 if (goal.skillId) {
                   setFocus(goal.skillId);
@@ -907,6 +976,7 @@ export function App() {
                 skills={goal.skills}
                 target={goal.target}
                 ratio={goal.ratio}
+                active={focus === goal.skillId}
                 onOpen={() => {
                 if (goal.skillId) {
                   setFocus(goal.skillId);
@@ -945,15 +1015,21 @@ export function App() {
             <div className="scroll">
               <p className="section-title">How this was built</p>
               <div className="card">
+                <p className="inspect-label">AI-assisted development</p>
                 <p className="card-text">
-                  I directed Devin, an AI coding agent, against a written spec — not autocomplete. The spec required a hand-rolled graph camera (no vis.js / D3), optimistic submit with rollback, and auto-linking from shared skills rather than raw word overlap.
+                  I directed Devin, an AI coding agent, against a written engineering specification rather than using it as autocomplete.
                 </p>
               </div>
-              <p className="section-title">This graph</p>
+              <p className="section-title">Engineering decisions</p>
               <div className="card">
-                <p className="card-text">
-                  Every thought is a node on a Jac object-spatial graph. Relatedness is a typed Link edge, and a Builds edge points at the skill a memory moved forward. Nothing here is a table.
-                </p>
+                <p className="inspect-label">Graph rendering</p>
+                <p className="card-text">Hand-rolled graph camera for direct control over pan, zoom, and glide-to-node. No vis.js or D3.</p>
+                <p className="inspect-label">Relationship model</p>
+                <p className="card-text">Thoughts connect through typed Link edges. Relatedness is 0.65 × shared skills + 0.35 × word overlap, capped at three peers — not raw keyword matching.</p>
+                <p className="inspect-label">State handling</p>
+                <p className="card-text">The Jac app submits optimistically and rolls back if the server rejects the write. This static demo files and links locally with the same scoring rules.</p>
+                <p className="inspect-label">Data model</p>
+                <p className="card-text">Thoughts, skills, and relationships are an object-spatial graph: Thought --Link--&gt; Thought, Thought --Builds--&gt; Skill.</p>
                 <p className="card-links">
                   {view.nodes.length} nodes · {view.links.length} edges
                 </p>

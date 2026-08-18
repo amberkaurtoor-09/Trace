@@ -1,70 +1,42 @@
 # Trace
 
-**An AI-powered second brain that turns thoughts into a living knowledge graph.**
+## The second brain that remembers how you remember.
 
-**[Live demo](https://amberkaurtoor-09.github.io/Trace/) — open and use it in the browser. No Jac install.**
+Trace turns thoughts into a living knowledge graph, connecting memories, skills, and goals to reveal patterns in how you learn.
+
+**[Live demo](https://amberkaurtoor-09.github.io/Trace/)** · **[GitHub](https://github.com/amberkaurtoor-09/Trace)**
 
 <img src="docs/graph.png" alt="Trace desktop studio: a force-directed knowledge graph of thoughts and skills, with a capture panel on the right" />
 
-Drop a thought in plain language. Trace categorizes it, auto-links related memories, and renders the whole brain as an interactive map. Repeated concepts accumulate into **skills** with mastery rings — so you can watch understanding compound instead of collecting a pile of notes.
-
 Built at Jac Hacks (Founders Inc. SF / Jaseci Labs), June 2026.
-
-<img src="docs/inspect.png" alt="Tapping a skill node glides the camera to it and lights its neighbourhood on the graph" />
-
-React + TypeScript + Vite · Jac object-spatial backend · no graph library
 
 ---
 
-## What I built
+## What is Trace?
 
-- A mobile-first capture loop that still reads as a **desktop studio**: graph on the left, composer + inspector on the right.
-- Auto-categorization and auto-linking — the user never draws an edge.
-- A **hand-rolled graph camera** (pan with momentum, pinch/wheel zoom, glide-to-node, auto-fit) with bezier edges whose opacity encodes link weight.
-- Skills that are *derived*, not entered: a `Builds` edge from thought → skill, mastery counted from the memories that feed it.
-- Optimistic submit with rollback, so a thought appears instantly and the server reconciles in the background.
-- An inspector that shows **why** two thoughts linked (shared skill vs word overlap, plus the numeric weight).
+Drop a thought in plain language. Trace categorizes it, links related memories, and grows **skills** from repeats. The graph is the product — not a notes list with a visualization bolted on.
 
-## Technical highlights
-
-| Decision | Why it matters |
-|---|---|
-| Directed **Devin**, an AI coding agent, against a written spec | Spec + review, not autocomplete |
-| Custom graph engine, **no vis.js / D3 / Cytoscape** | Camera, layout, and animation are application code |
-| React 18 + TypeScript + Vite | Client render pipeline through Jac `cl` blocks |
-| Optimistic updates with rollback | Instant UI; failure restores the previous graph |
-| Jac / Jaseci object-spatial backend | The brain *is* a graph (`Thought --Link--> Thought`, `Thought --Builds--> Skill`) |
-| Relatedness = 0.65 × shared skills + 0.35 × word overlap, capped at 3 peers | Measured on the seed corpus: pure overlap peaked at 0.14 and half its top pairs were coincidence |
-| Inspectable `Link.reason` | A recruiter can tap a node and see the scoring, not just a pretty picture |
-
-## How it was built
-
-This was built by directing **Devin** toward a specific technical spec — rather than hand-writing every line or accepting whatever the agent generated.
-
-My role:
-
-1. Write the architecture and constraints (no external graph library, optimistic submit + rollback, shared-skill linking instead of raw TF-IDF).
-2. Direct the agent the way I'd direct an engineer — tasks, review, pushback.
-3. Validate the implementation against the spec (layout determinism, Jac compile-to-JS gotchas, camera bookkeeping in module `glob`s because pointer events outrun React).
-
-That split — **spec / direction / validation vs generated code** — is the interesting part of the project.
-
-## The 60-second loop
+It is inspired by knowledge graphs, Obsidian-style connected notes, and curiosity mapping: relationships between ideas should be visible, so you can see what to explore next. The “brain” language is a metaphor, not a claim about neural activity.
 
 ```text
-What's on your mind?
-        │
-        ▼
-  thought appears as a node   ← optimistic, rolls back on failure
-        │
-        ▼
-  related concepts connect    ← Link edges, weight + reason on the wire
-        │
-        ▼
-  skills update               ← Builds edges, mastery rings
+thought  →  relationship  →  skill  →  goal  →  curiosity / next path
 ```
 
-On desktop the graph stays on screen the whole time. Submit, and the new node is focused with a story chip: *Filed as learning · linked to 2 thoughts · feeds Systems Thinking*.
+## Why I built it
+
+Note apps store what you already wrote. Trace is about **what connects**, and what that suggests you might work on next. I wanted a recruiter (or anyone) to add one thought and watch it land on a living map — without installing anything.
+
+## How it works
+
+1. Capture a thought (or try the example in the demo).
+2. Trace files a category and scores relatedness against existing thoughts.
+3. A `Link` edge is stored with a reason (shared skill and/or word overlap).
+4. A `Builds` edge points at any skill the thought moved forward.
+5. The graph highlights that neighbourhood; **Explore your curiosity** lights a skill and the thoughts that feed it.
+
+<img src="docs/inspect.png" alt="Selecting a skill lights its connected thoughts and shows why they linked" />
+
+The [live demo](https://amberkaurtoor-09.github.io/Trace/) is a browser build of this loop. No Jac install.
 
 ## Technical architecture
 
@@ -76,51 +48,69 @@ Composer  ──create_thought──►  wire_thought()
                                    └─ peer score    →  Thought --Link--> Thought
                                                         reason stored on the edge
 
-LoadBrain walker
+LoadBrain walker (Jac)
   visits every Thought / Skill from root
-  force-layout (phyllotaxis seed, 260 steps, deterministic)
+  force-layout (phyllotaxis seed, deterministic)
   reports GraphNode / GraphLink / SkillView
 
-BrainGraph (client)
-  camera in module globs (not React state)
-  pan + momentum, pinch/wheel zoom, glide-to-node
-  bezier edges, mastery rings, neighbourhood focus
+BrainGraph / demo Graph
+  hand-rolled camera (no vis.js / D3)
+  pan, wheel zoom, glide-to-node
+  bezier edges; neighbourhood focus
 ```
 
-**Layout.** Portrait canvas (1000×1700) so a phone doesn't letterbox a square map. Positions are deterministic on purpose: the same brain lays out identically on every load, so nodes don't teleport between refreshes.
+The static demo in `demo/` uses the same scoring rules in TypeScript so the public URL works without a Python server.
 
-**Compile-to-JS gotchas found by testing in the browser** (worth knowing if you read the code):
+## Key engineering decisions
 
-- `len()` of a dict compiles to `undefined`, which silently disabled focus highlighting.
-- A `glob` is module-local, so cross-file imports die at bundle time — palette helpers are functions, not imported globs.
-- Inline `<span>` bars ignore height, so every progress bar rendered empty until the markup changed.
+| Decision | Why |
+|---|---|
+| Directed **Devin** against a written spec | Spec + review, not autocomplete |
+| Custom graph engine, **no vis.js / D3** | Camera, layout, and highlight are application code |
+| Relatedness = 0.65 × shared skills + 0.35 × word overlap, max 3 peers | Measured on the seed corpus: pure overlap peaked at 0.14 and half its top pairs were coincidence |
+| Inspectable `Link.reason` | You can see *why* two thoughts linked |
+| Skills are derived (`Builds` edges), not typed in | Mastery rings count connected thoughts — not a measured ability score |
+| Jac object-spatial graph | The Jac app *is* a graph, not a table with a drawing on top |
+| Optimistic submit + rollback in the Jac app | Instant UI; a failed write restores the previous graph |
 
-## Run the Jac app locally
+Compile-to-JS issues found in the Jac client (if you read that code): `len()` of a dict compiles to `undefined`; `glob`s are module-local; inline `<span>` bars ignored height.
 
-The [live demo](https://amberkaurtoor-09.github.io/Trace/) is a browser build of the same capture → link → skills loop. The Jac server lives in this repo if you want to run the original stack:
+## Demo
+
+- **Live:** [amberkaurtoor-09.github.io/Trace](https://amberkaurtoor-09.github.io/Trace/)
+- Try **Explore your curiosity** — tap Public Speaking and watch thought → skill light up.
+- **Try:** *I struggled to explain my project without looking at my slides.* then **+ Add thought**.
+
+Jac app (full stack, local):
 
 ```bash
 pip install jaclang
 jac start --dev main.jac
 ```
 
+Static demo:
+
+```bash
+cd demo
+npm install
+npm run dev
+```
+
+## What I would build next
+
+- Persist the Jac graph so a session survives reload without reseeding.
+- Glide + auto-fit parity between the Jac camera and the static demo.
+- A tighter “next path” ranking that uses goal-category thoughts explicitly, still without inventing edges.
+
 ## Project layout
 
 ```text
-main.jac              # entry — mounts client app, registers server
-endpoints.sv.jac      # graph model, LoadBrain walker, create/delete/seed
-frontend.cl.jac       # stateful shell (graph + dock)
-frontend.impl.jac     # async handlers, optimistic submit, auto-seed
-components/           # BrainGraph, Composer, NodeSheet, Skills, Feed, …
-global.css            # design system + desktop studio layout
+main.jac              # Jac entry
+endpoints.sv.jac      # graph model, LoadBrain, create/delete/seed
+frontend.cl.jac       # Jac UI shell
+frontend.impl.jac     # optimistic submit, auto-seed
+demo/                 # browser demo (GitHub Pages)
+components/           # Jac graph, composer, feed, skills
 ```
 
-## Stack
-
-- **Jac** — server walkers + React client in one language (`jac-version` in `jac.toml`)
-- **React 18 + TypeScript + Vite** — client render pipeline
-- **No external graph library** — layout on the server, camera on the client
-
----
-
-Jac Hacks project.
+React 18 + TypeScript + Vite · Jac / Jaseci · no external graph library
