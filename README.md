@@ -2,18 +2,15 @@
 
 **An AI-powered second brain that turns thoughts into a living knowledge graph.**
 
-<p>
-  <a href="https://github.com/amberkaurtoor-09/Trace">GitHub</a>
-  · React + TypeScript + Vite
-  · Jac object-spatial backend
-  · no graph library
-</p>
-
-<img src="docs/hero.svg" alt="Trace: capture a thought, watch it wire into a knowledge graph, and see skills form from the repeats" />
+<img src="docs/graph.png" alt="Trace desktop studio: a force-directed knowledge graph of thoughts and skills, with a capture panel on the right" />
 
 Drop a thought in plain language. Trace categorizes it, auto-links related memories, and renders the whole brain as an interactive map. Repeated concepts accumulate into **skills** with mastery rings — so you can watch understanding compound instead of collecting a pile of notes.
 
 Built at Jac Hacks (Founders Inc. SF / Jaseci Labs), June 2026.
+
+<img src="docs/inspect.png" alt="Tapping a skill node glides the camera to it and lights its neighbourhood on the graph" />
+
+React + TypeScript + Vite · Jac object-spatial backend · no graph library
 
 ---
 
@@ -96,18 +93,14 @@ BrainGraph (client)
 - A `glob` is module-local, so cross-file imports die at bundle time — palette helpers are functions, not imported globs.
 - Inline `<span>` bars ignore height, so every progress bar rendered empty until the markup changed.
 
-## Screenshots / try it
-
-The hero above is the product frame: graph + capture + inspector. Run it locally to pan the real camera and submit a thought.
+## Run locally
 
 ```bash
 pip install jaclang
 jac start --dev main.jac
 ```
 
-Open the **App** URL printed in the terminal. First load seeds a demo brain automatically so you never stare at an empty map.
-
-There is no hosted live demo. A polished local run (and this repo) is the intended review path.
+Open the **App** URL printed in the terminal. First load seeds a demo brain automatically. There is no hosted live demo — this repo is the intended review path.
 
 ## Project layout
 
