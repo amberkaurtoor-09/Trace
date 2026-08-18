@@ -21,7 +21,7 @@ export const CAT_COLORS: Record<string, string> = {
 const KEYWORDS: Record<Category, string[]> = {
   goal: ["goal", "want to", "plan to", "by next", "deadline", "ship", "launch", "finish"],
   memory: ["remember", "yesterday", "last week", "back when", "reminded me", "we met"],
-  learning: ["learned", "read that", "turns out", "til", "discovered", "figured out"],
+  learning: ["learned", "learning", "read that", "turns out", "til", "discovered", "figured out"],
   health: ["sleep", "slept", "workout", "run", "ran", "gym", "ate", "tired", "anxious"],
   reflection: ["i feel", "i think", "wonder", "grateful", "realized", "lately"],
   idea: ["what if", "idea", "could build", "concept", "imagine"],
@@ -33,9 +33,10 @@ const SKILL_SPECS: SkillSpec[] = [
   { name: "Object-Spatial Programming", blurb: "Thinking in nodes, edges and walkers", target: 6, words: ["jac", "walker", "graph", "node", "edge", "spawn", "traversal", "osp"] },
   { name: "Frontend Craft", blurb: "Interfaces that feel considered", target: 6, words: ["react", "css", "layout", "component", "animation", "interface", "responsive", "svg"] },
   { name: "Systems Thinking", blurb: "Seeing the whole, not the parts", target: 5, words: ["architecture", "system", "tradeoff", "scale", "latency", "bottleneck", "coupling"] },
-  { name: "Machine Learning", blurb: "Getting useful work out of models", target: 5, words: ["model", "llm", "embedding", "prompt", "inference", "training", "dataset"] },
+  { name: "Machine Learning", blurb: "Getting useful work out of models", target: 5, words: ["model", "llm", "embedding", "prompt", "inference", "training", "dataset", "ai", "agent", "agents"] },
   { name: "Writing", blurb: "Turning thinking into prose", target: 4, words: ["write", "writing", "wrote", "essay", "draft", "blog", "article", "prose"] },
   { name: "Focus & Recovery", blurb: "Sustaining the engine that does the work", target: 4, words: ["sleep", "slept", "rest", "focus", "tired", "workout", "walk", "burnout", "energy"] },
+  { name: "Public Speaking", blurb: "Turning what you know into something an audience can feel", target: 5, words: ["speaker", "speaking", "presentation", "audience", "slides", "talked", "rehearsed", "present", "talk"] },
 ];
 
 const DEMO: [string, Category][] = [
@@ -57,6 +58,9 @@ const DEMO: [string, Category][] = [
   ["Embedding search returned nonsense until I normalized the vectors first", "learning"],
   ["Goal for next month: write one essay a week and actually publish them", "goal"],
   ["We met at the meetup and talked about scale and latency tradeoffs for an hour", "memory"],
+  ["I froze in the first minute of my Jac Hacks talk and read every slide", "memory"],
+  ["I want to become a stronger public speaker without sounding rehearsed", "goal"],
+  ["Practiced the talk out loud and the architecture story finally landed with the audience", "learning"],
 ];
 
 export type GraphNode = {
@@ -78,6 +82,14 @@ export type GraphLink = {
   kind: "link" | "builds";
   reason: string;
 };
+
+export const CURRENT_GOAL = {
+  title: "Become a stronger public speaker",
+  skill: "Public Speaking",
+};
+
+export const SAMPLE_THOUGHT =
+  "I practiced the talk out loud and the opening finally felt like a conversation with the audience.";
 
 export type SkillView = {
   id: string;
@@ -416,4 +428,47 @@ export function seedBrain() {
   const brain = new Brain();
   brain.seed();
   return brain;
+}
+
+export function goalStats(view: BrainView) {
+  const skill = view.skills.find((s) => s.name === CURRENT_GOAL.skill);
+  const memories = skill?.reps ?? 0;
+  const target = skill?.target ?? 5;
+  return {
+    title: CURRENT_GOAL.title,
+    skillId: skill?.id ?? "",
+    memories,
+    skills: skill ? 1 : 0,
+    target,
+    ratio: Math.min(1, memories / Math.max(target, 1)),
+  };
+}
+
+export type CuriosityItem = {
+  id: string;
+  title: string;
+  why: string;
+};
+
+export function curiosity(view: BrainView): CuriosityItem[] {
+  const goal = view.skills.find((s) => s.name === CURRENT_GOAL.skill);
+  const items: CuriosityItem[] = [];
+  if (goal) {
+    items.push({
+      id: goal.id,
+      title: goal.name,
+      why: `${goal.reps} memories on this path`,
+    });
+  }
+  const rest = view.skills
+    .filter((s) => s.name !== CURRENT_GOAL.skill)
+    .sort((a, b) => a.mastery - b.mastery);
+  for (const s of rest.slice(0, 2)) {
+    items.push({
+      id: s.id,
+      title: s.name,
+      why: s.mastery < 0.45 ? "Still opening — a place to explore next" : "Adjacent to what you already capture",
+    });
+  }
+  return items;
 }

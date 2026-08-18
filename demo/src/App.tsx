@@ -1,11 +1,15 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Brain,
   CATEGORIES,
+  SAMPLE_THOUGHT,
   catColor,
+  curiosity,
+  goalStats,
   radiusOf,
   seedBrain,
   type BrainView,
+  type CuriosityItem,
   type GraphNode,
 } from "./brain";
 
@@ -30,16 +34,19 @@ function shortDate(iso: string) {
 function Graph({
   view,
   focus,
+  freshId,
   hidden,
   onPick,
 }: {
   view: BrainView;
   focus: string;
+  freshId: string;
   hidden: string[];
   onPick: (id: string) => void;
 }) {
   const [cam, setCam] = useState({ x: 0, y: 200, w: 1000 });
   const drag = useRef<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const prevFocus = useRef("");
   const visible = view.nodes.filter((n) => n.kind === "skill" || !hidden.includes(n.category));
   const at = new Map(visible.map((n) => [n.id, n]));
   const neighbors = new Set<string>();
@@ -51,6 +58,37 @@ function Graph({
     }
   }
   const vh = (cam.w * WORLD_H) / WORLD_W;
+
+  useEffect(() => {
+    if (!focus || focus === prevFocus.current) {
+      prevFocus.current = focus;
+      return;
+    }
+    prevFocus.current = focus;
+    const node = at.get(focus);
+    if (!node) return;
+    const start = cam;
+    const width = start.w;
+    const height = (width * WORLD_H) / WORLD_W;
+    const endX = node.x - width / 2;
+    const endY = node.y - height / 2;
+    const t0 = performance.now();
+    let raf = 0;
+    const tickCam = (now: number) => {
+      const t = Math.min(1, (now - t0) / 420);
+      const ease = 1 - (1 - t) * (1 - t);
+      setCam({
+        x: start.x + (endX - start.x) * ease,
+        y: start.y + (endY - start.y) * ease,
+        w: width,
+      });
+      if (t < 1) raf = requestAnimationFrame(tickCam);
+    };
+    raf = requestAnimationFrame(tickCam);
+    return () => cancelAnimationFrame(raf);
+    // Glide only when the focused node changes; pan/zoom stay user-driven.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   return (
     <svg
@@ -106,6 +144,7 @@ function Graph({
           mastery={view.skills.find((s) => s.id === node.id)?.mastery ?? 0}
           dim={Boolean(focus) && !neighbors.has(node.id)}
           lit={focus === node.id}
+          fresh={freshId === node.id}
           onPick={onPick}
         />
       ))}
@@ -119,6 +158,7 @@ function NodeMark({
   mastery,
   dim,
   lit,
+  fresh,
   onPick,
 }: {
   node: GraphNode;
@@ -126,6 +166,7 @@ function NodeMark({
   mastery: number;
   dim: boolean;
   lit: boolean;
+  fresh: boolean;
   onPick: (id: string) => void;
 }) {
   const skill = node.kind === "skill";
@@ -137,9 +178,10 @@ function NodeMark({
   let klass = "gnode";
   if (dim) klass += " dim";
   if (lit) klass += " lit";
+  if (fresh) klass += " fresh";
   return (
     <g className={klass} style={{ animationDelay: `${delay}ms` }} onClick={() => onPick(node.id)}>
-      {lit && <circle className="gnode-glow" cx={node.x} cy={node.y} r={r * 2.4} fill={color} />}
+      {(lit || fresh) && <circle className="gnode-glow" cx={node.x} cy={node.y} r={r * 2.4} fill={color} />}
       {skill && (
         <>
           <circle cx={node.x} cy={node.y} r={ringR} fill="none" stroke="#2b2e3d" strokeWidth={3} />
@@ -228,6 +270,7 @@ function Composer({
   text,
   cat,
   embedded,
+  linking,
   onText,
   onCat,
   onSubmit,
@@ -236,6 +279,7 @@ function Composer({
   text: string;
   cat: string;
   embedded: boolean;
+  linking: boolean;
   onText: (value: string) => void;
   onCat: (value: string) => void;
   onSubmit: () => void;
@@ -246,7 +290,7 @@ function Composer({
       {!embedded && <div className="backdrop" onClick={onClose} />}
       <div className={embedded ? "sheet embedded" : "sheet"}>
         {!embedded && <div className="grabber" />}
-        <h3>{embedded ? "What's on your mind?" : "New thought"}</h3>
+        <h3>{embedded ? "Add a thought" : "New thought"}</h3>
         <textarea
           className="composer-input"
           value={text}
@@ -254,8 +298,9 @@ function Composer({
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSubmit();
           }}
-          placeholder="I've been learning about AI agents and how they change software development."
+          placeholder={SAMPLE_THOUGHT}
           autoFocus={!embedded}
+          disabled={linking}
         />
         <div className="cat-strip">
           <button className={`cat-pick${cat === "" ? " on" : ""}`} onClick={() => onCat("")}>
@@ -275,13 +320,15 @@ function Composer({
             </button>
           ))}
         </div>
-        <button className="primary-btn" disabled={!text.trim()} onClick={onSubmit}>
-          Add to brain
+        <button className="primary-btn" disabled={linking || !text.trim()} onClick={onSubmit}>
+          {linking ? "Connecting…" : "+ Add thought"}
         </button>
         <p className="hint">
-          {cat === ""
-            ? "Auto-categorised and linked to related thoughts. ⌘↵ to submit."
-            : `Filed under ${cat}, still auto-linked.`}
+          {linking
+            ? "Filing this thought and linking it by shared skills — not a chatbot call."
+            : cat === ""
+              ? "Trace files it, links related memories, and updates skills. ⌘↵ to submit."
+              : `Filed under ${cat}, still auto-linked.`}
         </p>
       </div>
     </div>
@@ -513,6 +560,193 @@ function ConfirmDialog({
   );
 }
 
+function GoalCard({
+  memories,
+  skills,
+  target,
+  ratio,
+  onOpen,
+}: {
+  memories: number;
+  skills: number;
+  target: number;
+  ratio: number;
+  onOpen: () => void;
+}) {
+  return (
+    <button className="goal-card" onClick={onOpen}>
+      <p className="goal-kicker">Current goal</p>
+      <p className="goal-title">Become a stronger public speaker</p>
+      <span className="bar-track goal-bar">
+        <span className="bar-fill" style={{ width: `${ratio * 100}%`, background: "#cfa356" }} />
+      </span>
+      <p className="goal-meta">
+        {memories} of {target} connected memories · {skills} skill
+      </p>
+      <p className="goal-note">Counted from linked thoughts — not a measured score.</p>
+    </button>
+  );
+}
+
+function CuriosityList({
+  items,
+  activeId,
+  onPick,
+}: {
+  items: CuriosityItem[];
+  activeId: string;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="curiosity">
+      <p className="section-title">Explore your curiosity</p>
+      <p className="dock-copy">Suggested next paths from this graph — tap one to light it up.</p>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          className={`curiosity-row${activeId === item.id ? " on" : ""}`}
+          onClick={() => onPick(item.id)}
+        >
+          <span className="curiosity-title">{item.title}</span>
+          <span className="curiosity-why">{item.why}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Inspector({
+  focused,
+  view,
+  onJump,
+  onClose,
+  docked,
+}: {
+  focused: GraphNode;
+  view: BrainView;
+  onJump: (id: string) => void;
+  onClose: () => void;
+  docked: boolean;
+}) {
+  const thoughts: { id: string; label: string }[] = [];
+  const skills: { id: string; label: string }[] = [];
+  const why: string[] = [];
+  const labels: Record<string, string> = {};
+  const kinds: Record<string, string> = {};
+  for (const n of view.nodes) {
+    labels[n.id] = n.label;
+    kinds[n.id] = n.kind;
+  }
+  for (const l of view.links) {
+    const other = l.source === focused.id ? l.target : l.target === focused.id ? l.source : "";
+    if (!other || !(other in labels)) continue;
+    if (l.kind === "builds") {
+      if (focused.kind === "skill") thoughts.push({ id: other, label: labels[other] });
+      else if (l.source === focused.id) skills.push({ id: l.target, label: labels[l.target] });
+      else thoughts.push({ id: other, label: `${labels[other]} · feeds this skill` });
+    } else {
+      thoughts.push({ id: other, label: labels[other] });
+      why.push(`${labels[other]} · ${Math.round(l.weight * 100)}% · ${l.reason}`);
+    }
+  }
+  const skillCount = focused.kind === "skill"
+    ? view.skills.filter((s) => s.id !== focused.id && thoughts.some((t) =>
+        view.links.some((l) => l.kind === "builds" && l.source === t.id && l.target === s.id)
+      )).length
+    : skills.length;
+
+  return (
+    <div className={docked ? "node-sheet docked" : "node-sheet"}>
+      <div className="node-sheet-top">
+        <span className="node-kind" style={{ color: focused.kind === "skill" ? "#c9d1ff" : catColor(focused.category) }}>
+          {focused.kind === "skill" ? "Skill" : focused.category}
+        </span>
+        <button className="node-close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <p className="node-text">{focused.detail}</p>
+      <div className="inspect-stats">
+        <div>
+          <b>{thoughts.length}</b>
+          <span>connected thoughts</span>
+        </div>
+        <div>
+          <b>{skillCount}</b>
+          <span>related skills</span>
+        </div>
+      </div>
+      {thoughts.length > 0 && (
+        <div className="inspect-block">
+          <p className="inspect-label">Connected thoughts</p>
+          <div className="node-neighbors">
+            {thoughts.slice(0, 6).map((t) => (
+              <button key={t.id} className="build-tag" onClick={() => onJump(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {skills.length > 0 && (
+        <div className="inspect-block">
+          <p className="inspect-label">Related skills</p>
+          <div className="node-neighbors">
+            {skills.map((s) => (
+              <button key={s.id} className="build-tag" onClick={() => onJump(s.id)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {why.length > 0 && focused.kind === "thought" && (
+        <div className="inspect-block">
+          <p className="inspect-label">Why it linked</p>
+          <ul className="inspect-list">
+            {why.map((row, i) => (
+              <li key={i}>{row}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AboutDrawer({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="backdrop" onClick={onClose} />
+      <div className="about-card" role="dialog" aria-label="About Trace">
+        <div className="node-sheet-top">
+          <p className="section-title" style={{ margin: 0 }}>About Trace</p>
+          <button className="node-close" onClick={onClose}>×</button>
+        </div>
+        <p className="card-text">
+          A curiosity map for your mind — memories become a living graph so you can remember, connect, and see what to explore next. Inspired by Obsidian’s note graph; the difference is discovering a path forward, not only filing what you already know.
+        </p>
+        <p className="inspect-label">Built with</p>
+        <p className="card-links">React · TypeScript · Vite · Jac/Jaseci</p>
+        <p className="inspect-label">Engineering</p>
+        <ul className="inspect-list">
+          <li>Custom graph visualization engine — no vis.js / D3</li>
+          <li>Force-directed layout</li>
+          <li>Pan, zoom, and glide-to-node</li>
+          <li>Optimistic updates with rollback (Jac app)</li>
+        </ul>
+        <p className="inspect-label">How it was built</p>
+        <p className="card-text">
+          AI-assisted development with Devin, directed against a written spec. Architecture, constraints, and validation stayed with the human developer.
+        </p>
+        <a className="about-github" href="https://github.com/amberkaurtoor-09/Trace" target="_blank" rel="noreferrer">
+          Source on GitHub
+        </a>
+      </div>
+    </>
+  );
+}
+
 export function App() {
   const brainRef = useRef<Brain | null>(null);
   if (!brainRef.current) {
@@ -527,26 +761,44 @@ export function App() {
   const [hidden, setHidden] = useState<string[]>([]);
   const [legendOpen, setLegendOpen] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [freshId, setFreshId] = useState("");
+  const [about, setAbout] = useState(false);
   const [pendingDelete, setPendingDelete] = useState("");
   const [confirmWipe, setConfirmWipe] = useState(false);
   const view = useMemo(() => brainRef.current!.view(), [tick]);
+  const goal = goalStats(view);
+  const nextPaths = curiosity(view);
 
   const thoughts = view.nodes.filter((n) => n.kind === "thought");
   const visible = thoughts.filter((n) => !hidden.includes(n.category));
   const focused = view.nodes.find((n) => n.id === focus);
 
-  function submit() {
-    const result = brainRef.current!.add(text, cat);
-    if (!result) return;
-    setText("");
-    setFocus(result.id);
+  function pick(id: string) {
+    setFocus((current) => (current === id ? "" : id));
     setTab("brain");
-    setComposing(false);
-    let line = `Filed as ${result.category}`;
-    if (result.related) line += ` · linked to ${result.related} thought${result.related === 1 ? "" : "s"}`;
-    if (result.fed.length) line += ` · feeds ${result.fed.join(", ")}`;
-    setStory(line);
-    setTick((n) => n + 1);
+  }
+
+  function submit() {
+    if (linking || !text.trim()) return;
+    const pending = text;
+    const pendingCat = cat;
+    setLinking(true);
+    window.setTimeout(() => {
+      const result = brainRef.current!.add(pending, pendingCat);
+      setLinking(false);
+      if (!result) return;
+      setText("");
+      setFocus(result.id);
+      setFreshId(result.id);
+      setTab("brain");
+      setComposing(false);
+      const bits = [`Filed as ${result.category}`];
+      if (result.related) bits.push(`${result.related} new connection${result.related === 1 ? "" : "s"}`);
+      if (result.fed.length) bits.push(`skill path: ${result.fed.join(", ")}`);
+      setStory(bits.join(" · "));
+      setTick((n) => n + 1);
+    }, 650);
   }
 
   function choose(name: string) {
@@ -558,28 +810,12 @@ export function App() {
     setHidden((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
   }
 
-  const related: string[] = [];
-  const skillsFed: string[] = [];
-  if (focus) {
-    const labels: Record<string, string> = {};
-    for (const n of view.nodes) labels[n.id] = n.label;
-    for (const l of view.links) {
-      const other = l.source === focus ? l.target : l.target === focus ? l.source : "";
-      if (!other || !(other in labels)) continue;
-      if (l.kind === "builds") {
-        if (l.source === focus) skillsFed.push(labels[l.target]);
-        else related.push(`${labels[other]} · feeds this skill`);
-      } else {
-        related.push(`${labels[other]} · ${Math.round(l.weight * 100)}% · ${l.reason}`);
-      }
-    }
-  }
-
   const composer = (
     <Composer
       text={text}
       cat={cat}
       embedded
+      linking={linking}
       onText={setText}
       onCat={setCat}
       onSubmit={submit}
@@ -600,7 +836,9 @@ export function App() {
           <h1 className="brand-name">Trace</h1>
           <p className="brand-tag">Thoughts become a living graph</p>
         </span>
-        <span className="engine-chip">browser demo · no install</span>
+        <button className="engine-chip about-chip" onClick={() => setAbout(true)}>
+          About Trace
+        </button>
       </header>
 
       <main className="stage">
@@ -608,9 +846,34 @@ export function App() {
           <Graph
             view={view}
             focus={focus}
+            freshId={freshId}
             hidden={hidden}
-            onPick={(id) => setFocus(id === focus ? "" : id)}
+            onPick={pick}
           />
+          {!focused && (
+          <div className="home-stack">
+            <GoalCard
+              memories={goal.memories}
+              skills={goal.skills}
+              target={goal.target}
+              ratio={goal.ratio}
+              onOpen={() => {
+                if (goal.skillId) {
+                  setFocus(goal.skillId);
+                  setTab("brain");
+                }
+              }}
+            />
+            <CuriosityList
+              items={nextPaths}
+              activeId={focus}
+              onPick={(id) => {
+                setFocus(id);
+                setTab("brain");
+              }}
+            />
+          </div>
+          )}
           {thoughts.length > 0 && (
             <>
               <CategoryLegend
@@ -624,77 +887,56 @@ export function App() {
               </div>
             </>
           )}
+          {linking && <div className="linking-toast">Connecting this thought to related memories…</div>}
           {focused && (
-            <div className="node-sheet">
-              <div className="node-sheet-top">
-                <span className="node-kind" style={{ color: focused.kind === "skill" ? "#c9d1ff" : catColor(focused.category) }}>
-                  {focused.kind === "skill" ? "Skill" : focused.category}
-                </span>
-                <button className="node-close" onClick={() => setFocus("")}>
-                  ×
-                </button>
-              </div>
-              <p className="node-text">{focused.detail}</p>
-            </div>
+            <Inspector
+              focused={focused}
+              view={view}
+              docked={false}
+              onJump={(id) => setFocus(id)}
+              onClose={() => setFocus("")}
+            />
           )}
         </div>
 
         <aside className="dock">
           {tab === "brain" && (
             <div className="dock-brain">
+              <GoalCard
+                memories={goal.memories}
+                skills={goal.skills}
+                target={goal.target}
+                ratio={goal.ratio}
+                onOpen={() => {
+                if (goal.skillId) {
+                  setFocus(goal.skillId);
+                  setTab("brain");
+                }
+              }}
+              />
               {composer}
               {story && <div className="capture-story">{story}</div>}
               {focused ? (
-                <div className="node-sheet docked">
-                  <div className="node-sheet-top">
-                    <span className="node-kind" style={{ color: focused.kind === "skill" ? "#c9d1ff" : catColor(focused.category) }}>
-                      {focused.kind === "skill" ? "Skill" : focused.category}
-                    </span>
-                    <button className="node-close" onClick={() => setFocus("")}>
-                      ×
-                    </button>
-                  </div>
-                  <p className="node-text">{focused.detail}</p>
-                  {skillsFed.length > 0 && (
-                    <div className="inspect-block">
-                      <p className="inspect-label">Feeds</p>
-                      <div className="node-neighbors">
-                        {skillsFed.map((s) => (
-                          <span key={s} className="build-tag">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {related.length > 0 && (
-                    <div className="inspect-block">
-                      <p className="inspect-label">Why it linked</p>
-                      <ul className="inspect-list">
-                        {related.map((row, i) => (
-                          <li key={i}>{row}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
+                <Inspector
+                  focused={focused}
+                  view={view}
+                  docked
+                  onJump={(id) => setFocus(id)}
+                  onClose={() => setFocus("")}
+                />
               ) : (
-                <div className="dock-guide">
-                  <p className="section-title">Tap a node</p>
-                  <p className="dock-copy">
-                    Relatedness is a weighted Link edge — shared skills first, word overlap to break ties, capped at three neighbours.
-                  </p>
-                  <p className="section-title">Skills forming</p>
-                  {view.skills.slice(0, 3).map((s) => (
-                    <div key={s.id} className="dock-skill">
-                      <span className="skill-name">{s.name}</span>
-                      <span className="card-meta">
-                        {s.reps}/{s.target}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <CuriosityList
+                  items={nextPaths}
+                  activeId={focus}
+                  onPick={(id) => {
+                    setFocus(id);
+                    setTab("brain");
+                  }}
+                />
               )}
+              <button className="about-link" onClick={() => setAbout(true)}>
+                About Trace →
+              </button>
             </div>
           )}
           {tab === "feed" && <Feed view={view} onDelete={setPendingDelete} />}
@@ -707,7 +949,7 @@ export function App() {
                   I directed Devin, an AI coding agent, against a written spec — not autocomplete. The spec required a hand-rolled graph camera (no vis.js / D3), optimistic submit with rollback, and auto-linking from shared skills rather than raw word overlap.
                 </p>
               </div>
-              <p className="section-title">This brain</p>
+              <p className="section-title">This graph</p>
               <div className="card">
                 <p className="card-text">
                   Every thought is a node on a Jac object-spatial graph. Relatedness is a typed Link edge, and a Builds edge points at the skill a memory moved forward. Nothing here is a table.
@@ -728,7 +970,7 @@ export function App() {
       <nav className="tabbar">
         <Tab name="brain" label="Brain" active={tab === "brain"} icon={ICONS.brain} onSelect={choose} />
         <Tab name="feed" label="Feed" active={tab === "feed"} icon={ICONS.feed} onSelect={choose} />
-        <button className="fab" onClick={() => setComposing(true)} aria-label="New thought">
+        <button className="fab" onClick={() => setComposing(true)} aria-label="Add thought">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>
@@ -743,6 +985,7 @@ export function App() {
             text={text}
             cat={cat}
             embedded={false}
+            linking={linking}
             onText={setText}
             onCat={setCat}
             onSubmit={submit}
@@ -750,6 +993,8 @@ export function App() {
           />
         </div>
       )}
+
+      {about && <AboutDrawer onClose={() => setAbout(false)} />}
 
       {confirmWipe && (
         <ConfirmDialog
@@ -760,6 +1005,7 @@ export function App() {
             brainRef.current!.wipe();
             setConfirmWipe(false);
             setFocus("");
+            setFreshId("");
             setStory("");
             setTick((n) => n + 1);
           }}

@@ -240,6 +240,17 @@ body {
 
 .gnode-glow { opacity: 0.18; }
 
+.gnode.lit .gnode-glow,
+.gnode.fresh .gnode-glow {
+  animation: glow-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  from { opacity: 0.12; }
+  50% { opacity: 0.34; }
+  to { opacity: 0.12; }
+}
+
 /* Mastery ring on skill nodes - the arc animates when reps change. */
 .gnode-ring {
   opacity: 0.9;
@@ -401,6 +412,9 @@ body {
   border-radius: 999px;
   font-size: var(--fs-xs);
   color: var(--text-2);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
 }
 
 .skill-name { font-size: var(--fs-md); font-weight: 650; }
@@ -985,6 +999,199 @@ body {
   font-size: 11px;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+.about-chip {
+  display: inline-flex;
+  margin-left: auto;
+  background: transparent;
+  cursor: pointer;
+}
+
+.goal-card {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 12px 12px 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-sheet);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.goal-kicker {
+  margin: 0 0 4px;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.goal-title {
+  margin: 0 0 10px;
+  font-size: var(--fs-md);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.goal-bar { display: block; margin-bottom: 8px; }
+
+.goal-meta {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+.goal-note {
+  margin: 4px 0 0;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.curiosity { padding: 4px 16px 12px; }
+
+.curiosity-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.curiosity-row.on {
+  border-color: #6d7cfa88;
+  background: var(--accent-soft);
+}
+
+.curiosity-title {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+}
+
+.curiosity-why {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.inspect-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.inspect-stats div {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.inspect-stats b {
+  display: block;
+  font-size: var(--fs-lg);
+}
+
+.inspect-stats span {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.home-stack {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 42%;
+  overflow: auto;
+  pointer-events: none;
+}
+
+.home-stack > * { pointer-events: auto; }
+
+.home-stack .goal-card {
+  width: 100%;
+  margin: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(12px);
+}
+
+.home-stack .curiosity { display: none; }
+
+.home-stack .dock-copy { display: none; }
+
+.linking-toast {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  padding: 10px 14px;
+  border: 1px solid #6d7cfa55;
+  border-radius: var(--r-md);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(12px);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.about-link {
+  margin: auto 16px 16px;
+  padding: 8px 0 12px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.about-card {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--tabbar-h) + 12px);
+  z-index: 40;
+  max-height: min(72vh, 560px);
+  overflow: auto;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-sheet);
+}
+
+.about-card .inspect-label { margin-top: 14px; }
+
+.about-github {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}
+
+@media (min-width: 960px) {
+  .home-stack { display: none; }
+  .about-card {
+    left: auto;
+    right: 24px;
+    width: min(400px, 36vw);
+    bottom: 24px;
+  }
 }
 
 .dock {
