@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Brain,
   CATEGORIES,
@@ -22,17 +22,26 @@ function edgePath(x1: number, y1: number, x2: number, y2: number) {
   return `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
 }
 
+function shortDate(iso: string) {
+  if (iso.length < 16) return "";
+  return `${iso.slice(5, 10)} ${iso.slice(11, 16)}`;
+}
+
 function Graph({
   view,
   focus,
+  hidden,
   onPick,
 }: {
   view: BrainView;
   focus: string;
+  hidden: string[];
   onPick: (id: string) => void;
 }) {
   const [cam, setCam] = useState({ x: 0, y: 200, w: 1000 });
   const drag = useRef<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const visible = view.nodes.filter((n) => n.kind === "skill" || !hidden.includes(n.category));
+  const at = new Map(visible.map((n) => [n.id, n]));
   const neighbors = new Set<string>();
   if (focus) {
     neighbors.add(focus);
@@ -73,8 +82,8 @@ function Graph({
       }}
     >
       {view.links.map((l, i) => {
-        const a = view.nodes.find((n) => n.id === l.source);
-        const b = view.nodes.find((n) => n.id === l.target);
+        const a = at.get(l.source);
+        const b = at.get(l.target);
         if (!a || !b) return null;
         const dim = focus && !neighbors.has(l.source) && !neighbors.has(l.target);
         return (
@@ -89,7 +98,7 @@ function Graph({
           />
         );
       })}
-      {view.nodes.map((node, index) => (
+      {visible.map((node, index) => (
         <NodeMark
           key={node.id}
           node={node}
@@ -170,6 +179,340 @@ function NodeMark({
   );
 }
 
+function CategoryLegend({
+  hidden,
+  open,
+  onToggle,
+  onExpand,
+}: {
+  hidden: string[];
+  open: boolean;
+  onToggle: (name: string) => void;
+  onExpand: () => void;
+}) {
+  return (
+    <div className={open ? "legend" : "legend closed"}>
+      <button className="legend-head" onClick={onExpand}>
+        <span className="legend-title">Categories</span>
+        <span className="legend-caret">{open ? "–" : "+"}</span>
+      </button>
+      {open
+        ? CATEGORIES.map((name) => (
+            <button
+              key={name}
+              className={hidden.includes(name) ? "legend-row off" : "legend-row"}
+              onClick={() => onToggle(name)}
+            >
+              <span className="legend-swatch" style={{ background: catColor(name) }} />
+              <span style={{ textTransform: "capitalize" }}>{name}</span>
+            </button>
+          ))
+        : (
+          <div className="legend-dots">
+            {CATEGORIES.map((name) => (
+              <button
+                key={name}
+                className={hidden.includes(name) ? "legend-dot off" : "legend-dot"}
+                style={{ background: catColor(name) }}
+                onClick={() => onToggle(name)}
+                aria-label={name}
+              />
+            ))}
+          </div>
+        )}
+    </div>
+  );
+}
+
+function Composer({
+  text,
+  cat,
+  embedded,
+  onText,
+  onCat,
+  onSubmit,
+  onClose,
+}: {
+  text: string;
+  cat: string;
+  embedded: boolean;
+  onText: (value: string) => void;
+  onCat: (value: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className={embedded ? "composer-root" : "composer-overlay-inner"}>
+      {!embedded && <div className="backdrop" onClick={onClose} />}
+      <div className={embedded ? "sheet embedded" : "sheet"}>
+        {!embedded && <div className="grabber" />}
+        <h3>{embedded ? "What's on your mind?" : "New thought"}</h3>
+        <textarea
+          className="composer-input"
+          value={text}
+          onChange={(e) => onText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSubmit();
+          }}
+          placeholder="I've been learning about AI agents and how they change software development."
+          autoFocus={!embedded}
+        />
+        <div className="cat-strip">
+          <button className={`cat-pick${cat === "" ? " on" : ""}`} onClick={() => onCat("")}>
+            Auto
+          </button>
+          {CATEGORIES.map((name) => (
+            <button
+              key={name}
+              className={`cat-pick${cat === name ? " on" : ""}`}
+              style={{
+                borderColor: cat === name ? catColor(name) : "#262833",
+                color: cat === name ? catColor(name) : "#9a9eb0",
+              }}
+              onClick={() => onCat(cat === name ? "" : name)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        <button className="primary-btn" disabled={!text.trim()} onClick={onSubmit}>
+          Add to brain
+        </button>
+        <p className="hint">
+          {cat === ""
+            ? "Auto-categorised and linked to related thoughts. ⌘↵ to submit."
+            : `Filed under ${cat}, still auto-linked.`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Tab({
+  name,
+  label,
+  active,
+  icon,
+  onSelect,
+}: {
+  name: string;
+  label: string;
+  active: boolean;
+  icon: ReactNode;
+  onSelect: (name: string) => void;
+}) {
+  return (
+    <button className={active ? "tab on" : "tab"} onClick={() => onSelect(name)}>
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+const ICONS = {
+  brain: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5a3 3 0 0 0-3 3 3 3 0 0 0-2 5.2A3 3 0 0 0 9 18a3 3 0 0 0 3 1 3 3 0 0 0 3-1 3 3 0 0 0 2-4.8A3 3 0 0 0 15 8a3 3 0 0 0-3-3Z" />
+      <path d="M12 5v14" />
+    </svg>
+  ),
+  feed: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <rect x="3" y="4" width="7" height="7" rx="2" />
+      <path d="M14 6h7M14 10h7M3 16h7M14 16h7M3 20h7M14 20h7" />
+    </svg>
+  ),
+  skills: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.9 4.8L18.7 9.7l-4.8 1.9L12 16.4l-1.9-4.8L5.3 9.7l4.8-1.9L12 3Z" />
+      <path d="M19 15l.9 2.2 2.1.8-2.1.8-.9 2.2-.9-2.2-2.1-.8 2.1-.8.9-2.2Z" />
+    </svg>
+  ),
+  me: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+    </svg>
+  ),
+};
+
+function Feed({
+  view,
+  onDelete,
+}: {
+  view: BrainView;
+  onDelete: (id: string) => void;
+}) {
+  const labels: Record<string, string> = {};
+  for (const n of view.nodes) labels[n.id] = n.label;
+  const peers: Record<string, number> = {};
+  const builds: Record<string, string[]> = {};
+  for (const l of view.links) {
+    if (l.kind === "builds") {
+      const name = labels[l.target] ?? "";
+      builds[l.source] = builds[l.source] ? [...builds[l.source], name] : [name];
+    } else {
+      peers[l.source] = (peers[l.source] ?? 0) + 1;
+      peers[l.target] = (peers[l.target] ?? 0) + 1;
+    }
+  }
+  const thoughts = view.nodes.filter((n) => n.kind === "thought").slice().reverse();
+
+  return (
+    <div className="scroll">
+      <p className="section-title">{thoughts.length} thoughts</p>
+      {thoughts.length === 0 && <p className="card-links">Nothing captured yet.</p>}
+      {thoughts.map((item, index) => {
+        const tint = catColor(item.category);
+        const fed = builds[item.id] ?? [];
+        const linked = peers[item.id] ?? 0;
+        return (
+          <article key={item.id} className="card enter" style={{ animationDelay: `${Math.min(index * 45, 450)}ms` }}>
+            <div className="card-top">
+              <span className="chip" style={{ background: `${tint}26`, color: tint }}>
+                {item.category}
+              </span>
+              <span className="card-meta">{shortDate(item.createdAt)}</span>
+              <button className="card-del" onClick={() => onDelete(item.id)}>
+                Forget
+              </button>
+            </div>
+            <p className="card-text">{item.detail}</p>
+            {fed.length > 0 && (
+              <div className="build-strip">
+                {fed.map((name) => (
+                  <span key={name} className="build-tag">
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
+            {linked > 0 && (
+              <p className="card-links">
+                Linked to {linked} {linked === 1 ? "thought" : "thoughts"}
+              </p>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function Skills({ view }: { view: BrainView }) {
+  const thoughts = view.nodes.filter((n) => n.kind === "thought");
+  const counts: Record<string, number> = {};
+  for (const t of thoughts) counts[t.category] = (counts[t.category] ?? 0) + 1;
+  const seen = new Set<string>();
+  for (const l of view.links) {
+    if (l.kind === "link") {
+      seen.add(l.source);
+      seen.add(l.target);
+    }
+  }
+  const total = thoughts.length;
+  const connected = thoughts.filter((t) => seen.has(t.id)).length;
+
+  return (
+    <div className="scroll">
+      <p className="section-title">Skills forming</p>
+      {view.skills.length === 0 && (
+        <p className="card-links">Capture a few thoughts and skills will emerge here.</p>
+      )}
+      {view.skills.map((s) => {
+        let level = "Practising";
+        if (s.mastery >= 1) level = "Fluent";
+        else if (s.mastery >= 0.6) level = "Solid";
+        else if (s.mastery < 0.3) level = "Just started";
+        return (
+          <article key={s.id} className="card">
+            <div className="card-top">
+              <span className="skill-name">{s.name}</span>
+              <span className="card-meta">{level}</span>
+            </div>
+            <p className="card-links" style={{ margin: "0 0 10px" }}>
+              {s.blurb}
+            </p>
+            <div className="bar-track">
+              <span className="bar-fill" style={{ width: `${s.mastery * 100}%`, background: "#6d7cfa" }} />
+            </div>
+            <p className="card-links">
+              {s.reps} of {s.target} thoughts feeding it
+            </p>
+          </article>
+        );
+      })}
+
+      <p className="section-title">Memory mix</p>
+      {CATEGORIES.map((name) => {
+        const count = counts[name] ?? 0;
+        const pct = total === 0 ? 0 : (count / total) * 100;
+        return (
+          <div key={name} className="bar-row">
+            <span className="bar-name">{name}</span>
+            <span className="bar-track">
+              <span className="bar-fill" style={{ width: `${pct}%`, background: catColor(name) }} />
+            </span>
+            <span className="bar-val">{count}</span>
+          </div>
+        );
+      })}
+
+      <p className="section-title">Graph shape</p>
+      <div className="stat-grid">
+        <div className="stat">
+          <div className="stat-num">{total}</div>
+          <div className="stat-lbl">Thoughts</div>
+        </div>
+        <div className="stat">
+          <div className="stat-num">{view.links.length}</div>
+          <div className="stat-lbl">Connections</div>
+        </div>
+        <div className="stat">
+          <div className="stat-num">{view.skills.length}</div>
+          <div className="stat-lbl">Skills</div>
+        </div>
+        <div className="stat">
+          <div className="stat-num">{total - connected}</div>
+          <div className="stat-lbl">Unlinked</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  action,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body: string;
+  action: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <div className="backdrop" onClick={onCancel} />
+      <div className="confirm-card" role="alertdialog" aria-label={title}>
+        <h3>{title}</h3>
+        <p>{body}</p>
+        <div className="confirm-actions">
+          <button className="confirm-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="confirm-go" onClick={onConfirm}>
+            {action}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function App() {
   const brainRef = useRef<Brain | null>(null);
   if (!brainRef.current) {
@@ -181,9 +524,15 @@ export function App() {
   const [cat, setCat] = useState("");
   const [story, setStory] = useState("");
   const [tab, setTab] = useState("brain");
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState("");
+  const [confirmWipe, setConfirmWipe] = useState(false);
   const view = useMemo(() => brainRef.current!.view(), [tick]);
 
   const thoughts = view.nodes.filter((n) => n.kind === "thought");
+  const visible = thoughts.filter((n) => !hidden.includes(n.category));
   const focused = view.nodes.find((n) => n.id === focus);
 
   function submit() {
@@ -192,11 +541,21 @@ export function App() {
     setText("");
     setFocus(result.id);
     setTab("brain");
+    setComposing(false);
     let line = `Filed as ${result.category}`;
     if (result.related) line += ` · linked to ${result.related} thought${result.related === 1 ? "" : "s"}`;
     if (result.fed.length) line += ` · feeds ${result.fed.join(", ")}`;
     setStory(line);
     setTick((n) => n + 1);
+  }
+
+  function choose(name: string) {
+    setTab(name);
+    setFocus("");
+  }
+
+  function toggleCategory(name: string) {
+    setHidden((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
   }
 
   const related: string[] = [];
@@ -215,6 +574,18 @@ export function App() {
       }
     }
   }
+
+  const composer = (
+    <Composer
+      text={text}
+      cat={cat}
+      embedded
+      onText={setText}
+      onCat={setCat}
+      onSubmit={submit}
+      onClose={() => setComposing(false)}
+    />
+  );
 
   return (
     <div className={`shell tab-${tab}`}>
@@ -237,53 +608,41 @@ export function App() {
           <Graph
             view={view}
             focus={focus}
+            hidden={hidden}
             onPick={(id) => setFocus(id === focus ? "" : id)}
           />
-          <div className="count-pill">
-            <b>{thoughts.length}</b> thoughts · <b>{view.skills.length}</b> skills
-          </div>
+          {thoughts.length > 0 && (
+            <>
+              <CategoryLegend
+                hidden={hidden}
+                open={legendOpen}
+                onToggle={toggleCategory}
+                onExpand={() => setLegendOpen((open) => !open)}
+              />
+              <div className="count-pill">
+                <b>{visible.length}</b> thoughts · <b>{view.skills.length}</b> skills
+              </div>
+            </>
+          )}
+          {focused && (
+            <div className="node-sheet">
+              <div className="node-sheet-top">
+                <span className="node-kind" style={{ color: focused.kind === "skill" ? "#c9d1ff" : catColor(focused.category) }}>
+                  {focused.kind === "skill" ? "Skill" : focused.category}
+                </span>
+                <button className="node-close" onClick={() => setFocus("")}>
+                  ×
+                </button>
+              </div>
+              <p className="node-text">{focused.detail}</p>
+            </div>
+          )}
         </div>
 
         <aside className="dock">
           {tab === "brain" && (
             <div className="dock-brain">
-              <div className="sheet embedded">
-                <h3>What's on your mind?</h3>
-                <textarea
-                  className="composer-input"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
-                  }}
-                  placeholder="I've been learning about AI agents and how they change software development."
-                />
-                <div className="cat-strip">
-                  <button
-                    className={`cat-pick${cat === "" ? " on" : ""}`}
-                    onClick={() => setCat("")}
-                  >
-                    Auto
-                  </button>
-                  {CATEGORIES.map((name) => (
-                    <button
-                      key={name}
-                      className={`cat-pick${cat === name ? " on" : ""}`}
-                      style={{
-                        borderColor: cat === name ? catColor(name) : "#262833",
-                        color: cat === name ? catColor(name) : "#9a9eb0",
-                      }}
-                      onClick={() => setCat(cat === name ? "" : name)}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-                <button className="primary-btn" disabled={!text.trim()} onClick={submit}>
-                  Add to brain
-                </button>
-                <p className="hint">Auto-categorised and linked. ⌘↵ to submit.</p>
-              </div>
+              {composer}
               {story && <div className="capture-story">{story}</div>}
               {focused ? (
                 <div className="node-sheet docked">
@@ -338,40 +697,90 @@ export function App() {
               )}
             </div>
           )}
-          {tab === "skills" && (
+          {tab === "feed" && <Feed view={view} onDelete={setPendingDelete} />}
+          {tab === "skills" && <Skills view={view} />}
+          {tab === "me" && (
             <div className="scroll">
-              <p className="section-title">Skills forming</p>
-              {view.skills.map((s) => (
-                <article key={s.id} className="card">
-                  <div className="card-top">
-                    <span className="skill-name">{s.name}</span>
-                    <span className="card-meta">{Math.round(s.mastery * 100)}%</span>
-                  </div>
-                  <p className="card-links">{s.blurb}</p>
-                  <div className="bar-track">
-                    <span className="bar-fill" style={{ width: `${s.mastery * 100}%`, background: "#6d7cfa" }} />
-                  </div>
-                  <p className="card-links">
-                    {s.reps} of {s.target} thoughts feeding it
-                  </p>
-                </article>
-              ))}
+              <p className="section-title">How this was built</p>
+              <div className="card">
+                <p className="card-text">
+                  I directed Devin, an AI coding agent, against a written spec — not autocomplete. The spec required a hand-rolled graph camera (no vis.js / D3), optimistic submit with rollback, and auto-linking from shared skills rather than raw word overlap.
+                </p>
+              </div>
+              <p className="section-title">This brain</p>
+              <div className="card">
+                <p className="card-text">
+                  Every thought is a node on a Jac object-spatial graph. Relatedness is a typed Link edge, and a Builds edge points at the skill a memory moved forward. Nothing here is a table.
+                </p>
+                <p className="card-links">
+                  {view.nodes.length} nodes · {view.links.length} edges
+                </p>
+              </div>
+              <p className="section-title">Danger zone</p>
+              <button className="ghost-btn wide" onClick={() => setConfirmWipe(true)}>
+                Erase this brain
+              </button>
             </div>
           )}
         </aside>
       </main>
 
-      <nav className="tabbar" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-        <button className={`tab${tab === "brain" ? " on" : ""}`} onClick={() => setTab("brain")}>
-          Brain
+      <nav className="tabbar">
+        <Tab name="brain" label="Brain" active={tab === "brain"} icon={ICONS.brain} onSelect={choose} />
+        <Tab name="feed" label="Feed" active={tab === "feed"} icon={ICONS.feed} onSelect={choose} />
+        <button className="fab" onClick={() => setComposing(true)} aria-label="New thought">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
         </button>
-        <button className="fab" onClick={() => setTab("brain")} aria-label="New thought">
-          +
-        </button>
-        <button className={`tab${tab === "skills" ? " on" : ""}`} onClick={() => setTab("skills")}>
-          Skills
-        </button>
+        <Tab name="skills" label="Skills" active={tab === "skills"} icon={ICONS.skills} onSelect={choose} />
+        <Tab name="me" label="Me" active={tab === "me"} icon={ICONS.me} onSelect={choose} />
       </nav>
+
+      {composing && (
+        <div className="composer-overlay">
+          <Composer
+            text={text}
+            cat={cat}
+            embedded={false}
+            onText={setText}
+            onCat={setCat}
+            onSubmit={submit}
+            onClose={() => setComposing(false)}
+          />
+        </div>
+      )}
+
+      {confirmWipe && (
+        <ConfirmDialog
+          title="Erase this brain?"
+          body="Every thought, link and skill will be permanently deleted. This cannot be undone."
+          action="Erase everything"
+          onConfirm={() => {
+            brainRef.current!.wipe();
+            setConfirmWipe(false);
+            setFocus("");
+            setStory("");
+            setTick((n) => n + 1);
+          }}
+          onCancel={() => setConfirmWipe(false)}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Forget this thought?"
+          body="The thought and its links will be removed. Skills it fed will lose one rep."
+          action="Forget it"
+          onConfirm={() => {
+            brainRef.current!.remove(pendingDelete);
+            if (focus === pendingDelete) setFocus("");
+            setPendingDelete("");
+            setTick((n) => n + 1);
+          }}
+          onCancel={() => setPendingDelete("")}
+        />
+      )}
     </div>
   );
 }

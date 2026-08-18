@@ -66,6 +66,7 @@ export type GraphNode = {
   detail: string;
   category: string;
   strength: number;
+  createdAt: string;
   x: number;
   y: number;
 };
@@ -99,6 +100,7 @@ type Thought = {
   category: Category;
   strength: number;
   skillNames: string[];
+  createdAt: string;
 };
 
 const CANVAS = 1000;
@@ -297,7 +299,14 @@ export class Brain {
 
     candidates.sort((a, b) => b.score - a.score);
     const id = `t${this.seq++}`;
-    const fresh: Thought = { id, content, category: cat, strength: 1, skillNames: mine };
+    const fresh: Thought = {
+      id,
+      content,
+      category: cat,
+      strength: 1,
+      skillNames: mine,
+      createdAt: new Date().toISOString(),
+    };
     for (const peer of candidates.slice(0, 3)) {
       this.peerEdges.push({
         source: id,
@@ -313,6 +322,20 @@ export class Brain {
 
   seed() {
     for (const [text, cat] of DEMO) this.add(text, cat);
+    const now = Date.now();
+    this.thoughts.forEach((t, i) => {
+      t.createdAt = new Date(now - (this.thoughts.length - 1 - i) * 14 * 3600 * 1000).toISOString();
+    });
+  }
+
+  remove(id: string) {
+    this.thoughts = this.thoughts.filter((t) => t.id !== id);
+    this.peerEdges = this.peerEdges.filter((e) => e.source !== id && e.target !== id);
+  }
+
+  wipe() {
+    this.thoughts = [];
+    this.peerEdges = [];
   }
 
   view(): BrainView {
@@ -355,6 +378,7 @@ export class Brain {
         detail: t.content,
         category: t.category,
         strength: t.strength,
+        createdAt: t.createdAt,
         x: p[0],
         y: p[1],
       });
@@ -370,6 +394,7 @@ export class Brain {
         detail: spec.blurb,
         category: "skill",
         strength: hits,
+        createdAt: "",
         x: p[0],
         y: p[1],
       });
