@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Trace: a knowledge graph of thoughts and skills">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0b0f"/>
+      <stop offset="100%" stop-color="#12141c"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect x="24" y="24" width="1232" height="672" rx="18" fill="#0a0b0f" stroke="#262833"/>
+
+  <!-- header -->
+  <rect x="24" y="24" width="1232" height="56" rx="18" fill="#121319"/>
+  <rect x="24" y="62" width="1232" height="18" fill="#121319"/>
+  <rect x="44" y="38" width="28" height="28" rx="8" fill="#5865f2"/>
+  <text x="84" y="50" fill="#eef0f6" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700">Trace</text>
+  <text x="84" y="66" fill="#9a9eb0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Thoughts become a living graph</text>
+  <rect x="980" y="40" width="250" height="24" rx="12" fill="none" stroke="#262833"/>
+  <text x="1105" y="56" text-anchor="middle" fill="#9a9eb0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">hand-rolled graph · no library</text>
+
+  <!-- graph pane -->
+  <rect x="24" y="80" width="820" height="616" fill="#0a0b0f"/>
+
+  <!-- edges -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M220 280 Q340 200 470 250" stroke="#8a86e8" stroke-width="2.2" opacity="0.7"/>
+    <path d="M470 250 Q560 310 640 360" stroke="#565d80" stroke-width="1.8" opacity="0.55"/>
+    <path d="M220 280 Q300 400 360 470" stroke="#565d80" stroke-width="1.6" opacity="0.45"/>
+    <path d="M360 470 Q520 430 640 360" stroke="#565d80" stroke-width="1.4" opacity="0.4"/>
+    <path d="M470 250 Q430 360 360 470" stroke="#8a86e8" stroke-width="2" opacity="0.55"/>
+    <path d="M640 360 Q700 250 760 220" stroke="#8a86e8" stroke-width="2" opacity="0.6"/>
+    <path d="M220 280 Q180 180 280 150" stroke="#565d80" stroke-width="1.3" opacity="0.35"/>
+    <path d="M760 220 Q700 160 620 140" stroke="#565d80" stroke-width="1.3" opacity="0.35"/>
+    <path d="M360 470 Q280 540 210 560" stroke="#565d80" stroke-width="1.2" opacity="0.3"/>
+  </g>
+
+  <!-- skill hubs -->
+  <g filter="url(#glow)">
+    <circle cx="470" cy="250" r="28" fill="none" stroke="#2b2e3d" stroke-width="3"/>
+    <circle cx="470" cy="250" r="28" fill="none" stroke="#c9d1ff" stroke-width="3" stroke-dasharray="120 56" transform="rotate(-90 470 250)"/>
+    <circle cx="470" cy="250" r="18" fill="#171a2e" stroke="#c9d1ff" stroke-width="3"/>
+    <text x="470" y="292" text-anchor="middle" fill="#c9d1ff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">Systems Thinking</text>
+
+    <circle cx="640" cy="360" r="26" fill="none" stroke="#2b2e3d" stroke-width="3"/>
+    <circle cx="640" cy="360" r="26" fill="none" stroke="#c9d1ff" stroke-width="3" stroke-dasharray="90 73" transform="rotate(-90 640 360)"/>
+    <circle cx="640" cy="360" r="16" fill="#171a2e" stroke="#c9d1ff" stroke-width="3"/>
+    <text x="640" y="400" text-anchor="middle" fill="#c9d1ff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">Frontend Craft</text>
+
+    <circle cx="360" cy="470" r="24" fill="none" stroke="#2b2e3d" stroke-width="3"/>
+    <circle cx="360" cy="470" r="24" fill="none" stroke="#c9d1ff" stroke-width="3" stroke-dasharray="70 80" transform="rotate(-90 360 470)"/>
+    <circle cx="360" cy="470" r="15" fill="#171a2e" stroke="#c9d1ff" stroke-width="3"/>
+    <text x="360" y="508" text-anchor="middle" fill="#c9d1ff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">Machine Learning</text>
+  </g>
+
+  <!-- thoughts -->
+  <circle cx="220" cy="280" r="16" fill="#5cb894"/>
+  <text x="220" y="312" text-anchor="middle" fill="#5cb894" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Walkers finally clicked</text>
+
+  <circle cx="280" cy="150" r="13" fill="#7d8cf0"/>
+  <text x="280" y="178" text-anchor="middle" fill="#7d8cf0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">every note was a node</text>
+
+  <circle cx="760" cy="220" r="14" fill="#5cb894"/>
+  <text x="760" y="252" text-anchor="middle" fill="#5cb894" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">React state in one shell</text>
+
+  <circle cx="620" cy="140" r="12" fill="#d97ba2"/>
+  <text x="620" y="168" text-anchor="middle" fill="#d97ba2" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">whiteboard session</text>
+
+  <circle cx="210" cy="560" r="12" fill="#58aec4"/>
+  <text x="210" y="588" text-anchor="middle" fill="#58aec4" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">long walk, layout bug</text>
+
+  <!-- focused node glow -->
+  <circle cx="220" cy="280" r="28" fill="#5cb894" opacity="0.16"/>
+
+  <rect x="56" y="640" width="168" height="28" rx="14" fill="#101118f2" stroke="#262833"/>
+  <text x="140" y="658" text-anchor="middle" fill="#9a9eb0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11"><tspan fill="#eef0f6" font-weight="700">18</tspan> thoughts · <tspan fill="#eef0f6" font-weight="700">6</tspan> skills</text>
+
+  <!-- dock -->
+  <rect x="844" y="80" width="412" height="616" fill="#121319" stroke="#262833"/>
+  <text x="868" y="118" fill="#eef0f6" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="650">What's on your mind?</text>
+  <rect x="868" y="136" width="364" height="88" rx="12" fill="#0a0b0f" stroke="#262833"/>
+  <text x="884" y="168" fill="#6b6f80" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">I've been learning about AI agents&</text>
+  <rect x="868" y="240" width="364" height="40" rx="10" fill="#5865f2"/>
+  <text x="1050" y="265" text-anchor="middle" fill="#fff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="650">Add to brain</text>
+
+  <rect x="868" y="300" width="364" height="44" rx="10" fill="#6d7cfa1f" stroke="#6d7cfa55"/>
+  <text x="886" y="327" fill="#eef0f6" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Filed as learning · linked to 2 thoughts · feeds Systems Thinking</text>
+
+  <text x="868" y="372" fill="#9a9eb0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" letter-spacing="1.6">WHY IT LINKED</text>
+  <text x="868" y="398" fill="#c9d1ff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">learning</text>
+  <text x="868" y="428" fill="#9a9eb0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">Walkers finally clicked</text>
+  <text x="868" y="450" fill="#6b6f80" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">71% · shared skill: Object-Spatial Programming</text>
+  <line x1="868" y1="466" x2="1232" y2="466" stroke="#262833"/>
+  <text x="868" y="494" fill="#9a9eb0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">every note was a node</text>
+  <text x="868" y="516" fill="#6b6f80" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">64% · shared skill: Systems Thinking + word overlap</text>
+</svg>

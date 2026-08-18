@@ -107,7 +107,8 @@ node Skill {
 }
 
 edge Link: Thought --> Thought {
-    has weight: float = 0.5;
+    has weight: float = 0.5,
+        reason: str = "";
 }
 
 edge Builds: Thought --> Skill {
@@ -130,12 +131,14 @@ obj GraphLink {
     has source: str,
         target: str,
         weight: float,
-        kind: str = "link";
+        kind: str = "link",
+        reason: str = "";
 }
 
 obj Peer {
     has score: float,
-        target: Thought;
+        target: Thought,
+        reason: str = "";
 }
 
 obj SkillView {
@@ -278,10 +281,24 @@ def wire_thought(text: str, category: str, when: str) -> Thought {
 
         smaller = min(len(mine), len(theirs));
         shared = len(mine & theirs) / smaller if smaller > 0 else 0.0;
-        score = 0.65 * shared + 0.35 * similarity(text, other.content);
+        lex = similarity(text, other.content);
+        score = 0.65 * shared + 0.35 * lex;
 
         if score >= 0.22 {
-            candidates.append(Peer(score=score, target=other));
+            shared_names: list[str] = [];
+            for sname in mine {
+                if sname in theirs {
+                    shared_names.append(sname);
+                }
+            }
+            why = "word overlap";
+            if len(shared_names) > 0 {
+                why = "shared skill: " + ", ".join(shared_names);
+                if lex >= 0.08 {
+                    why = why + " + word overlap";
+                }
+            }
+            candidates.append(Peer(score=score, target=other, reason=why));
         }
     }
 
@@ -289,7 +306,7 @@ def wire_thought(text: str, category: str, when: str) -> Thought {
     # and a hairball is not a map.
     ranked = sorted(candidates, key=lambda (p: Peer) -> float { return p.score; }, reverse=True);
     for peer in ranked[:3] {
-        fresh +>:Link(weight=peer.score):+> peer.target;
+        fresh +>:Link(weight=peer.score, reason=peer.reason):+> peer.target;
         peer.target.strength = peer.target.strength + 1;
     }
 
@@ -541,11 +558,19 @@ walker:pub LoadBrain {
 
             for other in [t ->:Link:->] {
                 weight = 0.5;
+                why = "";
                 for e in [edge t ->:Link:-> other] {
                     weight = e.weight;
+                    why = e.reason;
                 }
                 self.links.append(
-                    GraphLink(source=tid, target=jid(other), weight=weight, kind="link")
+                    GraphLink(
+                        source=tid,
+                        target=jid(other),
+                        weight=weight,
+                        kind="link",
+                        reason=why
+                    )
                 );
             }
 
@@ -553,7 +578,13 @@ walker:pub LoadBrain {
                 sid = jid(skill);
                 reps[sid] = reps[sid] + 1 if sid in reps else 1;
                 self.links.append(
-                    GraphLink(source=tid, target=sid, weight=1.0, kind="builds")
+                    GraphLink(
+                        source=tid,
+                        target=sid,
+                        weight=1.0,
+                        kind="builds",
+                        reason="this thought feeds the skill"
+                    )
                 );
             }
         }

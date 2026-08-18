@@ -1,4 +1,4 @@
-"""Neurotech - the app shell.
+"""Trace - the app shell.
 
 One stateful component owns the brain and prop-drills it into the sections
 (jac-cl-organization's stateful-shell pattern). Handler bodies live in
@@ -35,7 +35,8 @@ def:pub app -> JsxElement {
         loaded: bool = False,
         error: str = "",
         confirmWipe: bool = False,
-        pendingDelete: str = "";
+        pendingDelete: str = "",
+        lastCapture: str = "";
 
     async can with entry {
         refresh();
@@ -120,27 +121,48 @@ def:pub app -> JsxElement {
         }
     }
 
-    # Labels of everything the focused node connects to.
+    # Labels of everything the focused node connects to, plus the inspectable
+    # reason string the server stored on each Link edge.
     labelOf: dict[str, str] = {};
     for n in nodes {
         labelOf[n.id] = n.label;
     }
-    peekNeighbors: list[str] = [];
+    peekRelated: list[str] = [];
+    peekSkills: list[str] = [];
     if focus {
         for l in links {
-            if l.source == focus and l.target in labelOf {
-                peekNeighbors = peekNeighbors + [labelOf[l.target]];
-            } elif l.target == focus and l.source in labelOf {
-                peekNeighbors = peekNeighbors + [labelOf[l.source]];
+            other = "";
+            if l.source == focus {
+                other = l.target;
+            } elif l.target == focus {
+                other = l.source;
+            }
+            if other and other in labelOf {
+                name = labelOf[other];
+                if l.kind == "builds" {
+                    if l.source == focus {
+                        peekSkills = peekSkills + [labelOf[l.target]];
+                    } else {
+                        peekRelated = peekRelated + [name + " · feeds this skill"];
+                    }
+                } else {
+                    pct = int(l.weight * 100.0 + 0.5);
+                    why = l.reason if l.reason else "related";
+                    peekRelated = peekRelated + [
+                        name + " · " + str(pct) + "% · " + why
+                    ];
+                }
             }
         }
     }
+
+    topSkills = skills[:3] if len(skills) > 3 else skills;
 
     def deleteFocused -> None {
         pendingDelete = focus;
     }
 
-    return <div className="shell">
+    return <div className={"shell tab-" + tab}>
         <header className="header">
             <span className="logo">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff"
@@ -150,17 +172,10 @@ def:pub app -> JsxElement {
                 </svg>
             </span>
             <span>
-                <h1 className="brand-name">Neurotech</h1>
-                <p className="brand-tag">Your second brain</p>
+                <h1 className="brand-name">Trace</h1>
+                <p className="brand-tag">Thoughts become a living graph</p>
             </span>
-            <button className="icon-btn" aria-label="Notifications">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 8-3 8h18s-3-1-3-8"/>
-                    <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
-                </svg>
-                <span className="dot"></span>
-            </button>
+            <span className="engine-chip">hand-rolled graph · no library</span>
         </header>
 
         {if error {
@@ -183,100 +198,158 @@ def:pub app -> JsxElement {
                 </div>
                 skip;
             }}
-            {if tab == "brain" {
-                <div key="brain" className="graph-wrap">
-                    <BrainGraph
-                        nodes={nodes}
-                        links={links}
-                        skills={skills}
-                        hidden={hidden}
-                        focus={focus}
-                        onPick={pickNode}
-                        onClear={clearFocus}
-                    />
-                    {if len(thoughts) == 0 {
-                        <div key="empty" className="empty">
-                            <h2>Build your second brain</h2>
-                            <p>Neurotech turns what you capture into a living graph.</p>
-                            <div className="onboard-steps">
-                                <div className="onboard-step">
-                                    <span className="onboard-num">1</span>
-                                    <span>Capture a thought, memory or goal</span>
-                                </div>
-                                <div className="onboard-step">
-                                    <span className="onboard-num">2</span>
-                                    <span>It links itself to related memories</span>
-                                </div>
-                                <div className="onboard-step">
-                                    <span className="onboard-num">3</span>
-                                    <span>Watch the skills you feed take shape</span>
-                                </div>
+            <div key="brain" className="graph-wrap">
+                <BrainGraph
+                    nodes={nodes}
+                    links={links}
+                    skills={skills}
+                    hidden={hidden}
+                    focus={focus}
+                    onPick={pickNode}
+                    onClear={clearFocus}
+                />
+                {if len(thoughts) == 0 {
+                    <div key="empty" className="empty">
+                        <h2>Build your second brain</h2>
+                        <p>Capture a thought. Trace categorizes it, links related memories, and grows skills from the repeats.</p>
+                        <div className="onboard-steps">
+                            <div className="onboard-step">
+                                <span className="onboard-num">1</span>
+                                <span>What's on your mind?</span>
                             </div>
-                            <button className="ghost-btn" onClick={startHere} disabled={busy}>
-                                Capture your first thought
-                            </button>
-                            <button className="ghost-btn" onClick={loadDemo} disabled={busy}>
-                                {"Building..." if busy else "Or load a demo brain"}
-                            </button>
+                            <div className="onboard-step">
+                                <span className="onboard-num">2</span>
+                                <span>It appears as a node and wires itself in</span>
+                            </div>
+                            <div className="onboard-step">
+                                <span className="onboard-num">3</span>
+                                <span>Skills update from what you keep thinking about</span>
+                            </div>
                         </div>
-                    }}
-                    {if len(thoughts) > 0 {
-                        <CategoryLegend
-                            key="legend"
-                            hidden={hidden}
-                            open={legendOpen}
-                            onToggle={toggle}
-                            onExpand={flipLegend}
-                        />
-                        <div key="count" className="count-pill">
-                            <b>{str(len(visible))}</b>{" thoughts · "}<b>{str(len(skills))}</b>{" skills"}
-                        </div>
-                    }}
-                    {if peekText {
-                        <NodeSheet
-                            key="sheet"
-                            kind={peekKind}
-                            tint={peekTint}
-                            text={peekText}
-                            neighbors={peekNeighbors}
-                            canDelete={peekIsThought}
-                            onDelete={deleteFocused}
-                            onClose={clearFocus}
-                        />
-                    }}
-                </div>
-            }}
-            {if tab == "feed" {
-                <Feed key="feed" nodes={nodes} links={links} onDelete={askRemove}/>
-            }}
-            {if tab == "skills" {
-                <Skills key="skills" nodes={nodes} links={links} skills={skills}/>
-            }}
-            {if tab == "me" {
-                <div key="me" className="scroll">
-                    <p className="section-title">This brain</p>
-                    <div className="card">
-                        <p className="card-text">
-                            {"Every thought is a node on a Jac graph. Relatedness is a typed Link edge, "
-                             + "and a Builds edge points at the skill a memory moved forward. "
-                             + "Nothing here is a table."}
-                        </p>
-                        <p className="card-links">
-                            {str(len(nodes)) + " nodes · " + str(len(links)) + " edges"}
-                        </p>
+                        <button className="ghost-btn" onClick={startHere} disabled={busy}>
+                            Capture your first thought
+                        </button>
+                        <button className="ghost-btn" onClick={loadDemo} disabled={busy}>
+                            {"Building..." if busy else "Or load a demo brain"}
+                        </button>
                     </div>
-                    <p className="section-title">Danger zone</p>
-                    <button className="ghost-btn wide" onClick={askWipe} disabled={busy}>
-                        Erase this brain
-                    </button>
-                </div>
-            }}
+                }}
+                {if len(thoughts) > 0 {
+                    <CategoryLegend
+                        key="legend"
+                        hidden={hidden}
+                        open={legendOpen}
+                        onToggle={toggle}
+                        onExpand={flipLegend}
+                    />
+                    <div key="count" className="count-pill">
+                        <b>{str(len(visible))}</b>{" thoughts · "}<b>{str(len(skills))}</b>{" skills"}
+                    </div>
+                }}
+                {if peekText {
+                    <NodeSheet
+                        key="sheet-mobile"
+                        kind={peekKind}
+                        tint={peekTint}
+                        text={peekText}
+                        related={peekRelated}
+                        skillsFed={peekSkills}
+                        canDelete={peekIsThought}
+                        docked={False}
+                        onDelete={deleteFocused}
+                        onClose={clearFocus}
+                    />
+                }}
+            </div>
+
+            <aside className="dock">
+                {if tab == "brain" {
+                    <div key="dock-brain" className="dock-brain">
+                        <Composer
+                            busy={busy}
+                            onSubmit={submit}
+                            onClose={closeComposer}
+                            embedded={True}
+                        />
+                        {if lastCapture {
+                            <div key="story" className="capture-story">{lastCapture}</div>
+                        }}
+                        {if peekText {
+                            <NodeSheet
+                                key="sheet-dock"
+                                kind={peekKind}
+                                tint={peekTint}
+                                text={peekText}
+                                related={peekRelated}
+                                skillsFed={peekSkills}
+                                canDelete={peekIsThought}
+                                docked={True}
+                                onDelete={deleteFocused}
+                                onClose={clearFocus}
+                            />
+                        }}
+                        {if not peekText {
+                            <div key="guide" className="dock-guide">
+                                <p className="section-title">Tap a node</p>
+                                <p className="dock-copy">
+                                    Relatedness is a weighted Link edge — shared skills first, word overlap to break ties, capped at three neighbours so the map stays a map.
+                                </p>
+                                {if len(topSkills) > 0 {
+                                    <p key="sk-title" className="section-title">Skills forming</p>
+                                }}
+                                {for s in topSkills {
+                                    <div key={s.id} className="dock-skill">
+                                        <span className="skill-name">{s.name}</span>
+                                        <span className="card-meta">{str(s.reps) + "/" + str(s.target)}</span>
+                                    </div>
+                                }}
+                            </div>
+                        }}
+                    </div>
+                }}
+                {if tab == "feed" {
+                    <Feed key="feed" nodes={nodes} links={links} onDelete={askRemove}/>
+                }}
+                {if tab == "skills" {
+                    <Skills key="skills" nodes={nodes} links={links} skills={skills}/>
+                }}
+                {if tab == "me" {
+                    <div key="me" className="scroll">
+                        <p className="section-title">How this was built</p>
+                        <div className="card">
+                            <p className="card-text">
+                                {"I directed Devin, an AI coding agent, against a written spec — "
+                                 + "not autocomplete. The spec required a hand-rolled graph camera "
+                                 + "(no vis.js / D3), optimistic submit with rollback, and auto-linking "
+                                 + "from shared skills rather than raw word overlap."}
+                            </p>
+                        </div>
+                        <p className="section-title">This brain</p>
+                        <div className="card">
+                            <p className="card-text">
+                                {"Every thought is a node on a Jac object-spatial graph. Relatedness is a typed Link edge, "
+                                 + "and a Builds edge points at the skill a memory moved forward. "
+                                 + "Nothing here is a table."}
+                            </p>
+                            <p className="card-links">
+                                {str(len(nodes)) + " nodes · " + str(len(links)) + " edges"}
+                            </p>
+                        </div>
+                        <p className="section-title">Danger zone</p>
+                        <button className="ghost-btn wide" onClick={askWipe} disabled={busy}>
+                            Erase this brain
+                        </button>
+                    </div>
+                }}
+            </aside>
         </main>
 
         <TabBar active={tab} onSelect={choose} onCompose={openComposer}/>
 
         {if composing {
-            <Composer key="composer" busy={busy} onSubmit={submit} onClose={closeComposer}/>
+            <div key="composer-overlay" className="composer-overlay">
+                <Composer busy={busy} onSubmit={submit} onClose={closeComposer}/>
+            </div>
         }}
 
         {if confirmWipe {

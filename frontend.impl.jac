@@ -1,4 +1,4 @@
-"""Neurotech - frontend handler implementations.
+"""Trace - frontend handler implementations.
 
 Each handler spawns the `LoadBrain` walker or calls a `def:pub` endpoint and
 folds the result back into client state. No fetch, no client SDK, no
@@ -13,6 +13,7 @@ server surfaces as a dismissible toast, never a white screen.
 """
 
 impl app.refresh -> None {
+    first = not loaded;
     try {
         result = root spawn LoadBrain();
         if result.reports {
@@ -20,6 +21,24 @@ impl app.refresh -> None {
             nodes = view.nodes;
             links = view.links;
             skills = view.skills;
+        }
+        if first {
+            empty = True;
+            for n in nodes {
+                if n.kind == "thought" {
+                    empty = False;
+                }
+            }
+            if empty {
+                _ = await seed_demo();
+                seeded = root spawn LoadBrain();
+                if seeded.reports {
+                    view = seeded.reports[0];
+                    nodes = view.nodes;
+                    links = view.links;
+                    skills = view.skills;
+                }
+            }
         }
         error = "";
     } except Exception {
@@ -68,6 +87,46 @@ impl app.submit(text: str, cat: str) -> None {
             skills = view.skills;
         }
         error = "";
+        tab = "brain";
+
+        seen: dict[str, bool] = {};
+        for n in base {
+            seen[n.id] = True;
+        }
+        picked = "";
+        filed = "";
+        for n in nodes {
+            if n.kind == "thought" and not (n.id in seen) {
+                picked = n.id;
+                filed = n.category;
+            }
+        }
+        if picked {
+            focus = picked;
+            related = 0;
+            fed: list[str] = [];
+            for l in links {
+                if l.kind == "link" and (l.source == picked or l.target == picked) {
+                    related += 1;
+                }
+                if l.kind == "builds" and l.source == picked {
+                    for node in nodes {
+                        if node.id == l.target {
+                            fed = fed + [node.label];
+                        }
+                    }
+                }
+            }
+            story = "Filed as " + filed;
+            if related > 0 {
+                story = story + " · linked to " + str(related)
+                    + (" thought" if related == 1 else " thoughts");
+            }
+            if len(fed) > 0 {
+                story = story + " · feeds " + ", ".join(fed);
+            }
+            lastCapture = story;
+        }
     } except Exception {
         nodes = base;
         error = "Couldn't save that thought. It has not been added.";
@@ -130,6 +189,7 @@ impl app.wipe -> None {
         }
         error = "";
         focus = "";
+        lastCapture = "";
         tab = "brain";
     } except Exception {
         error = "Couldn't erase the brain. Everything is still intact.";

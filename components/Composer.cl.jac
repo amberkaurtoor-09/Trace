@@ -27,7 +27,8 @@ def:pub CatPick(name: str, label: str, on: bool, onPick: Callable[[str], None]) 
 def:pub Composer(
     busy: bool,
     onSubmit: Callable[[str, str], None],
-    onClose: Callable[[], None]
+    onClose: Callable[[], None],
+    embedded: bool = False
 ) -> JsxElement {
     has text: str = "";
     has cat: str = "";
@@ -47,20 +48,36 @@ def:pub Composer(
     def send(_e: MouseEvent) {
         if text.strip() {
             onSubmit(text.strip(), cat);
+            text = "";
         }
     }
 
-    return <div>
-        <div className="backdrop" onClick={dismiss}></div>
-        <div className="sheet">
-            <div className="grabber"></div>
-            <h3>New thought</h3>
+    def key(e: KeyboardEvent) {
+        if e.key == "Enter" and (e.metaKey or e.ctrlKey) {
+            e.preventDefault();
+            if text.strip() {
+                onSubmit(text.strip(), cat);
+                text = "";
+            }
+        }
+    }
+
+    return <div className={"composer-root" if embedded else "composer-overlay-inner"}>
+        {if not embedded {
+            <div key="back" className="backdrop" onClick={dismiss}></div>
+        }}
+        <div className={"sheet embedded" if embedded else "sheet"}>
+            {if not embedded {
+                <div key="grab" className="grabber"></div>
+            }}
+            <h3>{"What's on your mind?" if embedded else "New thought"}</h3>
             <textarea
                 className="composer-input"
                 value={text}
                 onChange={edit}
-                placeholder="What's on your mind?"
-                autoFocus={True}
+                onKeyDown={key}
+                placeholder="I've been learning about AI agents and how they change software development."
+                autoFocus={not embedded}
             ></textarea>
             <div className="cat-strip">
                 <CatPick name="" label="Auto" on={cat == ""} onPick={pick}/>
@@ -72,7 +89,7 @@ def:pub Composer(
                 {"Thinking..." if busy else "Add to brain"}
             </button>
             <p className="hint">
-                {"Auto-categorised and linked to related thoughts." if cat == ""
+                {"Auto-categorised and linked to related thoughts. ⌘↵ to submit." if cat == ""
                  else "Filed under " + cat + ", still auto-linked."}
             </p>
         </div>

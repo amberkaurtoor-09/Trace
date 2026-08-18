@@ -935,3 +935,159 @@ body {
   color: var(--text-2);
   text-align: center;
 }
+
+/* ── Inspector / capture story ─────────────────────────────────────── */
+
+.inspect-block { margin-top: 12px; }
+
+.inspect-label {
+  margin: 0 0 6px;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.inspect-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspect-list li {
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.capture-story {
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid #6d7cfa55;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.engine-chip {
+  display: none;
+  margin-left: auto;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dock {
+  display: none;
+  background: var(--bg);
+  overflow: auto;
+}
+
+.dock-brain {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.dock-guide { padding: 4px 16px 24px; }
+
+.dock-copy {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.dock-skill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.sheet.embedded {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  padding: 16px 16px 12px;
+  border-radius: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  animation: none;
+}
+
+.node-sheet.docked {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin: 8px 12px 16px;
+  background: var(--bg-sheet);
+}
+
+.composer-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+
+.composer-root { display: contents; }
+
+.shell:not(.tab-brain) .graph-wrap { display: none; }
+.shell:not(.tab-brain) .dock {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+@media (min-width: 960px) {
+  .shell {
+    max-width: none;
+  }
+
+  .engine-chip { display: inline-flex; }
+
+  .stage {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .graph-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    display: block !important;
+    inset: auto;
+  }
+
+  .dock {
+    display: flex !important;
+    flex-direction: column;
+    position: relative;
+    inset: auto;
+    width: min(400px, 36vw);
+    flex: 0 0 min(400px, 36vw);
+    border-left: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+
+  .graph-wrap > .node-sheet { display: none; }
+
+  .composer-overlay { display: none; }
+
+  .tabbar {
+    max-width: none;
+  }
+}
