@@ -2,6 +2,8 @@
 
 **An AI-powered second brain that turns thoughts into a living knowledge graph.**
 
+**[Live demo](https://amberkaurtoor-09.github.io/Trace/) — open and use it in the browser. No Jac install.**
+
 <img src="docs/graph.png" alt="Trace desktop studio: a force-directed knowledge graph of thoughts and skills, with a capture panel on the right" />
 
 Drop a thought in plain language. Trace categorizes it, auto-links related memories, and renders the whole brain as an interactive map. Repeated concepts accumulate into **skills** with mastery rings — so you can watch understanding compound instead of collecting a pile of notes.
@@ -93,14 +95,14 @@ BrainGraph (client)
 - A `glob` is module-local, so cross-file imports die at bundle time — palette helpers are functions, not imported globs.
 - Inline `<span>` bars ignore height, so every progress bar rendered empty until the markup changed.
 
-## Run locally
+## Run the Jac app locally
+
+The [live demo](https://amberkaurtoor-09.github.io/Trace/) is a browser build of the same capture → link → skills loop. The Jac server lives in this repo if you want to run the original stack:
 
 ```bash
 pip install jaclang
 jac start --dev main.jac
 ```
-
-Open the **App** URL printed in the terminal. First load seeds a demo brain automatically. There is no hosted live demo — this repo is the intended review path.
 
 ## Project layout
 
